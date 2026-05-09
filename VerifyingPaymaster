@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VerifyingPaymaster — Mainnet Production</title>
+<style>
+:root {
+  --bg:#07090f;--bg2:#0d1017;--bg3:#131720;--bg4:#1a1f2e;--bg5:#1f2538;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#e2e6f3;--muted:#636a85;--dim:#3d4460;
+  --accent:#3d7fff;--accent2:#5b8eff;--accent3:rgba(61,127,255,0.12);
+  --green:#1fc97a;--green-bg:rgba(31,201,122,0.1);
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.1);
+  --red:#ff4f4f;--red-bg:rgba(255,79,79,0.1);
+  --purple:#9b7fff;--teal:#1ed6c0;--cyan:#00d4ff;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',sans-serif;font-size:13px;min-height:100vh;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:2px;}
+
+/* topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-icon{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
+.brand-name{font-weight:700;font-size:14px;letter-spacing:-.4px;}
+.brand-tag{font-size:10px;color:var(--muted);margin-left:2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill.live{background:var(--green-bg);color:var(--green);}
+.pill.paused{background:var(--red-bg);color:var(--red);}
+.pill.syncing{background:rgba(0,212,255,0.1);color:var(--cyan);}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.chip{font-size:10px;font-family:var(--mono);color:var(--muted);background:var(--bg3);border:1px solid var(--border);padding:2px 7px;border-radius:4px;cursor:pointer;transition:.15s;}
+.chip:hover{border-color:var(--accent2);color:var(--text);}
+.btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:11px;font-weight:600;transition:.15s;}
+.btn:hover{background:var(--bg4);}
+.btn.danger{border-color:var(--red);color:var(--red);}
+.btn.danger:hover{background:var(--red-bg);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.primary:hover{opacity:.85;}
+.btn.sm{padding:4px 10px;font-size:11px;}
+
+/* layout */
+.layout{display:flex;height:calc(100vh - 52px);}
+
+/* sidebar */
+.sidebar{width:192px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);padding:1rem 0;display:flex;flex-direction:column;overflow-y:auto;}
+.nav-sec{font-size:9.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);padding:0 1rem 5px;margin-top:10px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:6px 1rem;cursor:pointer;color:var(--muted);font-size:12px;border-left:2px solid transparent;transition:.1s;user-select:none;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.025);}
+.nav-item.active{color:var(--text);background:var(--accent3);border-left-color:var(--accent);}
+.nav-icon{width:16px;text-align:center;font-size:14px;}
+.nav-badge{margin-left:auto;font-size:10px;background:var(--accent3);color:var(--accent2);padding:1px 5px;border-radius:3px;}
+
+/* main */
+.main{flex:1;overflow-y:auto;padding:1.25rem 1.5rem;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:.9rem 1rem;}
+.stat.hi{border-color:rgba(61,127,255,.25);background:rgba(61,127,255,.04);}
+.stat-lbl{font-size:10px;color:var(--muted);letter-spacing:.3px;margin-bottom:5px;}
+.stat-val{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.stat-sub.up{color:var(--green);}
+.stat-sub.dn{color:var(--red);}
+
+/* cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:1rem 1.1rem;margin-bottom:1rem;}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.card-title{font-size:12px;font-weight:700;color:var(--text);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{text-align:left;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);padding:0 8px 7px;border-bottom:1px solid var(--border);}
+.tbl td{padding:8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.015);}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.3px;}
+.badge.green{background:var(--green-bg);color:var(--green);}
+.badge.red{background:var(--red-bg);color:var(--red);}
+.badge.amber{background:var(--amber-bg);color:var(--amber);}
+.badge.blue{background:var(--accent3);color:var(--accent2);}
+.badge.purple{background:rgba(155,127,255,.12);color:var(--purple);}
+.badge.cyan{background:rgba(0,212,255,.1);color:var(--cyan);}
+
+/* mono / addr */
+.mono{font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+.addr{font-family:var(--mono);font-size:10.5px;color:var(--accent2);cursor:pointer;}
+.addr:hover{text-decoration:underline;}
+
+/* forms */
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:10px;color:var(--muted);}
+.fi{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:6px 9px;border-radius:6px;font-size:11px;font-family:var(--mono);outline:none;width:100%;transition:.15s;}
+.fi:focus{border-color:var(--accent);}
+.fi.secret{letter-spacing:2px;color:var(--amber);}
+.frow{display:flex;gap:7px;align-items:flex-end;}
+.fi-group{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+textarea.fi{resize:vertical;min-height:72px;letter-spacing:.5px;}
+
+/* progress bar */
+.bar-bg{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin:6px 0;}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s;}
+
+/* log / feed */
+.log-wrap{max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:10.5px;line-height:1.8;}
+.log-line{display:flex;gap:8px;border-bottom:1px solid rgba(255,255,255,.03);padding:2px 0;}
+.log-ts{color:var(--dim);flex-shrink:0;}
+.log-lvl{flex-shrink:0;width:40px;}
+.log-lvl.info{color:var(--accent2);}
+.log-lvl.ok{color:var(--green);}
+.log-lvl.warn{color:var(--amber);}
+.log-lvl.err{color:var(--red);}
+
+/* mempool */
+.mp-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.mp-row:last-child{border-bottom:none;}
+.mp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* hash link */
+.hash-link{font-family:var(--mono);font-size:10px;color:var(--accent2);cursor:pointer;text-decoration:none;}
+.hash-link:hover{text-decoration:underline;}
+
+/* chart */
+.chart-wrap{position:relative;height:120px;margin-top:8px;}
+
+/* warn box */
+.warn-box{display:flex;gap:10px;align-items:flex-start;background:var(--amber-bg);border:1px solid rgba(245,166,35,.25);border-radius:7px;padding:10px 12px;margin-bottom:1rem;font-size:11px;color:var(--amber);}
+
+/* key reveal */
+.key-reveal-wrap{position:relative;}
+.key-mask{position:absolute;inset:0;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);cursor:pointer;z-index:5;transition:.2s;}
+.key-mask:hover{background:var(--bg4);color:var(--text);}
+
+/* node status bar */
+.node-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.node-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;}
+.node-name{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.node-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;}
+.node-block{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px;}
+
+/* toast */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border2);padding:9px 14px;border-radius:7px;font-size:12px;opacity:0;transform:translateY(6px);transition:.2s;pointer-events:none;z-index:999;}
+#toast.show{opacity:1;transform:translateY(0);}
+
+/* explorer link */
+.explorer-link{font-size:10px;color:var(--accent2);cursor:pointer;}
+.explorer-link:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <span class="brand-name">VerifyingPaymaster</span>
+    <span class="brand-tag">ERC-4337 · Mainnet</span>
+  </div>
+  <div class="topbar-right">
+    <span class="chip" id="block-chip">Block #<span id="live-block">0</span></span>
+    <span class="chip" id="contract-chip" onclick="copyChip('0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001')" title="Click to copy">0x4a9e…0001</span>
+    <span class="pill live" id="node-pill"><span class="dot"></span><span id="node-lbl">Synced</span></span>
+    <button class="btn danger" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="nav-sec">Monitor</div>
+  <div class="nav-item active" onclick="nav('dashboard',this)"><span class="nav-icon">◈</span>Dashboard</div>
+  <div class="nav-item" onclick="nav('mempool',this)"><span class="nav-icon">⟳</span>Mempool<span class="nav-badge" id="mp-badge">0</span></div>
+  <div class="nav-item" onclick="nav('blocks',this)"><span class="nav-icon">▣</span>Blocks</div>
+  <div class="nav-item" onclick="nav('txlog',this)"><span class="nav-icon">≡</span>Tx Log</div>
+
+  <div class="nav-sec">Node Config</div>
+  <div class="nav-item" onclick="nav('rpc',this)"><span class="nav-icon">⬡</span>RPC Endpoints</div>
+  <div class="nav-item" onclick="nav('keys',this)"><span class="nav-icon">🔑</span>Signer Keys</div>
+  <div class="nav-item" onclick="nav('peers',this)"><span class="nav-icon">◎</span>Peers</div>
+
+  <div class="nav-sec">Paymaster</div>
+  <div class="nav-item" onclick="nav('tokens',this)"><span class="nav-icon">◉</span>ERC-20 Tokens</div>
+  <div class="nav-item" onclick="nav('budgets',this)"><span class="nav-icon">▤</span>Budgets</div>
+  <div class="nav-item" onclick="nav('deposit',this)"><span class="nav-icon">↓</span>Deposit / Withdraw</div>
+
+  <div class="nav-sec">Reference</div>
+  <div class="nav-item" onclick="nav('abi',this)"><span class="nav-icon">{ }</span>ABI & SDK</div>
+  <div class="nav-item" onclick="nav('nodelog',this)"><span class="nav-icon">📋</span>Node Logs</div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div class="panel active" id="panel-dashboard">
+  <div class="stat-grid">
+    <div class="stat hi">
+      <div class="stat-lbl">EntryPoint Deposit</div>
+      <div class="stat-val" style="color:var(--accent2)" id="ep-balance">2.481 ETH</div>
+      <div class="stat-sub up" id="ep-usd">≈ $7,458 @ $3,005</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Ops Sponsored (24h)</div>
+      <div class="stat-val" id="ops-24h">8,294</div>
+      <div class="stat-sub up" id="ops-delta">↑ 9.3% vs yesterday</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Gas Spent (24h)</div>
+      <div class="stat-val" id="gas-24h">0.641 ETH</div>
+      <div class="stat-sub dn">↑ 4.2% cost increase</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Current Base Fee</div>
+      <div class="stat-val" id="base-fee">-- gwei</div>
+      <div class="stat-sub">Mainnet live feed</div>
+    </div>
+  </div>
+
+  <!-- node status bar -->
+  <div class="node-bar">
+    <div class="node-card">
+      <div class="node-name">PRIMARY RPC — Alchemy</div>
+      <div class="node-status"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Connected</div>
+      <div class="node-block">Latest block: <span id="nb-primary">syncing…</span></div>
+    </div>
+    <div class="node-card">
+      <div class="node-name">FALLBACK RPC — Infura</div>
+      <div class="node-status" id="infura-stat"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Standby</div>
+      <div class="node-block">Latest block: <span id="nb-fallback">syncing…</span></div>
+    </div>
+    <div class="node-card">
+      <div class="node-name">BUNDLER — Pimlico</div>
+      <div class="node-status"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Active</div>
+      <div class="node-block">Queue depth: <span id="bundler-q">0</span> ops</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Daily Budget Utilisation</span>
+        <span class="badge amber" id="budget-pct-badge">-- %</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="budget-bar" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--teal))"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
+        <span id="budget-spent-lbl">0.000 ETH spent</span>
+        <span>Limit: <span id="budget-limit-lbl">1.0 ETH / day</span></span>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Resets in <span id="budget-reset" style="color:var(--text);font-weight:700">--:--:--</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Mode Split (24h)</span></div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:4px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+            <div style="width:9px;height:9px;border-radius:2px;background:var(--accent)"></div>
+            <span style="font-size:11px">Sponsored</span>
+            <span style="margin-left:auto;font-weight:700" id="mode-sponsored">5,912</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:9px;height:9px;border-radius:2px;background:var(--teal)"></div>
+            <span style="font-size:11px">ERC-20 Prepay</span>
+            <span style="margin-left:auto;font-weight:700" id="mode-erc20">2,382</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 56 56" width="56" height="56">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--bg4)" stroke-width="9"/>
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--accent)" stroke-width="9" stroke-dasharray="83 55" stroke-dashoffset="22"/>
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--teal)" stroke-width="9" stroke-dasharray="44 94" stroke-dashoffset="-61"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Gas Spend — Last 14 Days (ETH)</span></div>
+    <div class="chart-wrap"><canvas id="gasChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Recent Confirmed UserOperations</span>
+      <a class="explorer-link" href="https://etherscan.io/address/0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001" target="_blank">View on Etherscan ↗</a>
+    </div>
+    <div id="dash-feed"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MEMPOOL ═══════════════ -->
+<div class="panel" id="panel-mempool">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Live Mempool — Pending UserOperations</span>
+      <span class="badge cyan" id="mp-count-badge">0 pending</span>
+    </div>
+    <div id="mempool-list" style="max-height:520px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ BLOCKS ═══════════════ -->
+<div class="panel" id="panel-blocks">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Recent Blocks</span>
+      <span style="font-size:10px;color:var(--muted)">Mainnet — live</span>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Block</th><th>Timestamp</th><th>Txns</th><th>Gas Used</th><th>Base Fee</th><th>Miner</th><th></th></tr></thead>
+      <tbody id="block-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ TX LOG ═══════════════ -->
+<div class="panel" id="panel-txlog">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Transaction Log — All Sponsored Ops</span>
+      <div style="display:flex;gap:6px">
+        <select class="fi" style="width:120px;padding:3px 7px" id="tx-filter" onchange="filterTx()">
+          <option>All</option><option>Sponsored</option><option>ERC-20</option><option>Failed</option>
+        </select>
+        <button class="btn sm" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+    </div>
+    <table class="tbl" id="tx-tbl">
+      <thead><tr><th>Hash</th><th>Block</th><th>Sender</th><th>Mode</th><th>Gas (ETH)</th><th>Status</th><th>Explorer</th></tr></thead>
+      <tbody id="tx-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ RPC ENDPOINTS ═══════════════ -->
+<div class="panel" id="panel-rpc">
+  <div class="warn-box">⚠ RPC URLs and API keys are stored only in this session. Never share them publicly. Use environment variables in production.</div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Ethereum Mainnet RPC Configuration</span></div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Primary RPC URL (Alchemy / Infura / QuickNode)</label>
+        <input class="fi" id="rpc-primary" placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY" value="https://eth-mainnet.g.alchemy.com/v2/"/>
+      </div>
+      <div class="fg">
+        <label>Fallback RPC URL</label>
+        <input class="fi" id="rpc-fallback" placeholder="https://mainnet.infura.io/v3/YOUR_KEY" value="https://mainnet.infura.io/v3/"/>
+      </div>
+    </div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Bundler RPC (Pimlico / Stackup / Alchemy AA)</label>
+        <input class="fi" id="rpc-bundler" placeholder="https://api.pimlico.io/v2/1/rpc?apikey=YOUR_KEY" value="https://api.pimlico.io/v2/1/rpc?apikey="/>
+      </div>
+      <div class="fg">
+        <label>EntryPoint Address (v0.6)</label>
+        <input class="fi" id="ep-addr" value="0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"/>
+      </div>
+    </div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Chain ID</label>
+        <input class="fi" id="chain-id" value="1" style="width:100%"/>
+      </div>
+      <div class="fg">
+        <label>Paymaster Contract Address</label>
+        <input class="fi" id="pm-addr" value="0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn primary" onclick="testRPC()">⚡ Test Connection</button>
+      <button class="btn" onclick="saveRPC()">Save Config</button>
+    </div>
+    <div id="rpc-result" style="margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--green);display:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">JSON-RPC Endpoint Methods Supported</span></div>
+    <table class="tbl">
+      <thead><tr><th>Method</th><th>Namespace</th><th>Purpose</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">eth_blockNumber</td><td class="mono">eth</td><td>Latest block height</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getBalance</td><td class="mono">eth</td><td>Account balance</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_sendRawTransaction</td><td class="mono">eth</td><td>Broadcast signed tx</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getTransactionByHash</td><td class="mono">eth</td><td>Tx lookup by hash</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getTransactionReceipt</td><td class="mono">eth</td><td>Confirm inclusion</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_call</td><td class="mono">eth</td><td>Read contract state</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_estimateGas</td><td class="mono">eth</td><td>Gas pre-flight</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_gasPrice</td><td class="mono">eth</td><td>Current gas price</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_feeHistory</td><td class="mono">eth</td><td>Base fee history</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getLogs</td><td class="mono">eth</td><td>Event log query</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getUserOperationByHash</td><td class="mono">eth</td><td>UserOp status</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">eth_sendUserOperation</td><td class="mono">eth</td><td>Submit UserOp to bundler</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">eth_supportedEntryPoints</td><td class="mono">eth</td><td>Bundler EntryPoint list</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">pm_sponsorUserOperation</td><td class="mono">pm</td><td>Request paymasterAndData</td><td><span class="badge purple">Paymaster</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ SIGNER KEYS ═══════════════ -->
+<div class="panel" id="panel-keys">
+  <div class="warn-box">⚠ Private keys give full signing authority. In production, use HSM / KMS (AWS KMS, GCP Cloud KMS, Hashicorp Vault). These fields are session-only and never transmitted.</div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Hot Signer — Backend Service</span><span class="badge green">Active</span></div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signer Address (public)</label>
+        <input class="fi" id="signer-addr-1" value="0xdEaD1234567890ABcDEF1234567890abcdef5678"/>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Private Key</label>
+        <div class="key-reveal-wrap">
+          <input class="fi secret" id="pk-1" type="password" placeholder="0x…64 hex chars" autocomplete="off"/>
+          <div class="key-mask" id="mask-1" onclick="revealKey(1)">🔒 Click to enter private key</div>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signing Backend URL (optional relay)</label>
+        <input class="fi" id="signer-relay-1" placeholder="https://your-signer-service.com/sign"/>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn primary" onclick="verifySigner(1)">Verify Key</button>
+        <button class="btn" onclick="rotateSigner(1)">Rotate</button>
+      </div>
+      <div id="signer-result-1" style="font-size:10px;font-family:var(--mono);margin-top:7px;color:var(--green)"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Cold Backup Signer</span><span class="badge amber">Standby</span></div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signer Address (public)</label>
+        <input class="fi" id="signer-addr-2" placeholder="0x…"/>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Private Key</label>
+        <div class="key-reveal-wrap">
+          <input class="fi secret" id="pk-2" type="password" placeholder="0x…64 hex chars" autocomplete="off"/>
+          <div class="key-mask" id="mask-2" onclick="revealKey(2)">🔒 Click to enter private key</div>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Activation Threshold</label>
+        <select class="fi" id="backup-thresh">
+          <option>Primary failure > 60s</option>
+          <option>Primary failure > 30s</option>
+          <option>Manual only</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn primary" onclick="verifySigner(2)">Verify Key</button>
+        <button class="btn" onclick="activateBackup()">Activate Now</button>
+      </div>
+      <div id="signer-result-2" style="font-size:10px;font-family:var(--mono);margin-top:7px;color:var(--green)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">paymasterAndData Signing Spec</span></div>
+    <pre style="font-family:var(--mono);font-size:10.5px;color:var(--muted);line-height:1.75;overflow-x:auto"><code><span style="color:var(--purple)">// Hash signed by the backend signer (EIP-191 personal_sign or raw secp256k1)
+</span><span style="color:var(--text)">const hash = ethers.utils.keccak256(ethers.utils.solidityPack(
+  ['bytes32','uint256','address','uint8','uint48','uint48','address'],
+  [userOpHash, chainId, paymasterAddr, mode, validUntil, validAfter, tokenAddr]
+));
+const sig = await signer.signMessage(ethers.utils.arrayify(hash));
+
+<span style="color:var(--purple)">// Pack into paymasterAndData (20 + 1 + 6 + 6 + 20 + 65 = 118 bytes)
+</span>const paymasterAndData = ethers.utils.hexConcat([
+  paymasterAddr,         <span style="color:var(--dim)">// [0:20]</span>
+  [mode],                <span style="color:var(--dim)">// [20]</span>
+  packUint48(validUntil),<span style="color:var(--dim)">// [21:27]</span>
+  packUint48(validAfter),<span style="color:var(--dim)">// [27:33]</span>
+  tokenAddr,             <span style="color:var(--dim)">// [33:53]</span>
+  sig                    <span style="color:var(--dim)">// [53:118] ECDSA 65 bytes</span>
+]);</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════ PEERS ═══════════════ -->
+<div class="panel" id="panel-peers">
+  <div class="card">
+    <div class="card-head"><span class="card-title">Connected Peers / Nodes</span><span class="badge green" id="peer-count">0 peers</span></div>
+    <table class="tbl">
+      <thead><tr><th>ENR / Peer ID</th><th>IP</th><th>Client</th><th>Block</th><th>Latency</th><th>Status</th></tr></thead>
+      <tbody id="peer-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Add Static Peer</span></div>
+    <div class="frow">
+      <div class="fg" style="flex:1">
+        <label>enode:// URI or ENR</label>
+        <input class="fi" id="peer-uri" placeholder="enode://pubkey@ip:30303"/>
+      </div>
+      <button class="btn primary" onclick="addPeer()">Add Peer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOKENS ═══════════════ -->
+<div class="panel" id="panel-tokens">
+  <div class="card">
+    <div class="card-head"><span class="card-title">Accepted ERC-20 Tokens — Mainnet</span></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Symbol</th><th>Mainnet Address</th><th>Oracle Price Feed</th><th>Rate (tokens/ETH)</th><th>Dec</th><th>Status</th><th></th></tr></thead>
+      <tbody id="token-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Add / Update Token</span></div>
+    <div class="fi-group">
+      <div class="fg"><label>Token Symbol</label><input class="fi" id="t-sym" placeholder="USDC"/></div>
+      <div class="fg"><label>Contract Address (Mainnet)</label><input class="fi" id="t-addr" placeholder="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"/></div>
+    </div>
+    <div class="fi-group">
+      <div class="fg"><label>Chainlink Price Feed Address</label><input class="fi" id="t-feed" placeholder="0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"/></div>
+      <div class="fg"><label>Rate (tokens per ETH, manual fallback)</label><input class="fi" id="t-rate" placeholder="3000"/></div>
+      <div class="fg"><label>Decimals</label><input class="fi" id="t-dec" placeholder="6"/></div>
+    </div>
+    <button class="btn primary" onclick="addToken()">Add Token</button>
+  </div>
+</div>
+
+<!-- ═══════════════ BUDGETS ═══════════════ -->
+<div class="panel" id="panel-budgets">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Global Daily Limit</span></div>
+      <div class="frow" style="margin-bottom:8px">
+        <div class="fg" style="flex:1"><label>Max ETH per Day (0 = unlimited)</label><input class="fi" id="global-budget" value="1.0"/></div>
+        <button class="btn primary" onclick="setGlobalBudget()">Update</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">Current: <span style="color:var(--text);font-weight:700" id="current-global-limit">1.0 ETH/day</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Per-User Cap</span></div>
+      <div class="fg" style="margin-bottom:6px"><label>User Address</label><input class="fi" id="budget-user" placeholder="0x…"/></div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Max ETH</label><input class="fi" id="budget-amt" placeholder="0.02"/></div>
+        <button class="btn primary" onclick="setUserBudget()">Set Cap</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">User Budget Ledger</span></div>
+    <table class="tbl">
+      <thead><tr><th>Address</th><th>Limit (ETH)</th><th>Spent (ETH)</th><th>Remaining</th><th>%</th></tr></thead>
+      <tbody id="budget-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ DEPOSIT / WITHDRAW ═══════════════ -->
+<div class="panel" id="panel-deposit">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Deposit ETH to EntryPoint</span></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Funds debited per UserOperation sponsored.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('0.5')"><div style="font-size:15px;font-weight:700">0.5 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~5k ops</div></div>
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('1.0')"><div style="font-size:15px;font-weight:700">1.0 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~10k ops</div></div>
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('5.0')"><div style="font-size:15px;font-weight:700">5.0 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~50k ops</div></div>
+      </div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Custom Amount (ETH)</label><input class="fi" id="dep-amt" placeholder="0.1"/></div>
+        <button class="btn primary" onclick="doDeposit()">Deposit</button>
+      </div>
+      <div style="margin-top:10px;background:var(--bg3);border-radius:6px;padding:9px 10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--muted)">EP Balance</span><span style="font-weight:700;color:var(--accent2)" id="dep-balance">2.481 ETH</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--muted)">Est. ops remaining</span><span style="font-weight:700" id="dep-ops">~24,810</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Withdraw</span></div>
+      <div class="fg" style="margin-bottom:8px"><label>ETH — Recipient</label><input class="fi" id="w-addr" placeholder="0x…"/></div>
+      <div class="frow" style="margin-bottom:12px">
+        <div class="fg" style="flex:1"><label>Amount (ETH)</label><input class="fi" id="w-amt" placeholder="0.1"/></div>
+        <button class="btn" style="border-color:var(--amber);color:var(--amber)" onclick="doWithdraw()">Withdraw ETH</button>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin-bottom:12px"/>
+      <div class="fg" style="margin-bottom:8px"><label>ERC-20 Token Address</label><input class="fi" id="wt-token" placeholder="0xA0b8…eB48"/></div>
+      <div class="fg" style="margin-bottom:8px"><label>Recipient</label><input class="fi" id="wt-addr" placeholder="0x…"/></div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Amount</label><input class="fi" id="wt-amt" placeholder="1000.0"/></div>
+        <button class="btn" style="border-color:var(--teal);color:var(--teal)" onclick="doWithdrawToken()">Withdraw Token</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ABI / SDK ═══════════════ -->
+<div class="panel" id="panel-abi">
+  <div class="card">
+    <div class="card-head"><span class="card-title">paymasterAndData Binary Layout (118 bytes)</span></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Bytes</th><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">[0:20]</td><td>paymaster</td><td class="mono">address</td><td style="color:var(--muted)">Stripped by EntryPoint before calling validatePaymasterUserOp</td></tr>
+        <tr><td class="mono">[20]</td><td>mode</td><td class="mono">uint8</td><td style="color:var(--muted)">0x00 = Sponsored · 0x01 = ERC-20 prepay</td></tr>
+        <tr><td class="mono">[21:27]</td><td>validUntil</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix timestamp; 0 = no expiry</td></tr>
+        <tr><td class="mono">[27:33]</td><td>validAfter</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix timestamp; 0 = immediate</td></tr>
+        <tr><td class="mono">[33:53]</td><td>token</td><td class="mono">address</td><td style="color:var(--muted)">Zero address for sponsored mode</td></tr>
+        <tr><td class="mono">[53:118]</td><td>signature</td><td class="mono">bytes65</td><td style="color:var(--muted)">ECDSA over keccak256(userOpHash‖chainId‖mode‖validUntil‖validAfter‖token)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Contract ABI — Key Functions</span><button class="btn sm" onclick="copyABI()">Copy ABI JSON</button></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Function</th><th>Access</th><th>Selector</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">validatePaymasterUserOp</td><td><span class="badge blue">EntryPoint</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Validate + debit / charge token</td></tr>
+        <tr><td class="mono">postOp</td><td><span class="badge blue">EntryPoint</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Post-execution token refund/finalize</td></tr>
+        <tr><td class="mono">deposit()</td><td><span class="badge purple">owner</span></td><td class="mono">0xd0e30db0</td><td style="color:var(--muted)">Deposit ETH to EntryPoint</td></tr>
+        <tr><td class="mono">withdrawTo(to,amt)</td><td><span class="badge purple">owner</span></td><td class="mono">0x205c2878</td><td style="color:var(--muted)">Pull ETH from EntryPoint</td></tr>
+        <tr><td class="mono">setSigner(addr,bool)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Grant / revoke signing authority</td></tr>
+        <tr><td class="mono">configureToken(…)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Add/update ERC-20 token + oracle</td></tr>
+        <tr><td class="mono">setDailyBudget(wei)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Global daily ETH cap</td></tr>
+        <tr><td class="mono">setUserBudget(user,wei)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Per-address ETH cap</td></tr>
+        <tr><td class="mono">setPaused(bool)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Emergency circuit breaker</td></tr>
+        <tr><td class="mono">getDeposit()</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Current EntryPoint deposit</td></tr>
+        <tr><td class="mono">getRemainingDailyBudget()</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Remaining global daily budget</td></tr>
+        <tr><td class="mono">getUserRemainingBudget(user)</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Remaining budget for one user</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ NODE LOGS ═══════════════ -->
+<div class="panel" id="panel-nodelog">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Node System Log</span>
+      <div style="display:flex;gap:6px">
+        <select class="fi" style="width:100px;padding:3px 7px" id="log-filter" onchange="filterLog()">
+          <option>ALL</option><option>INFO</option><option>OK</option><option>WARN</option><option>ERR</option>
+        </select>
+        <button class="btn sm" onclick="clearLog()">Clear</button>
+      </div>
+    </div>
+    <div class="log-wrap" id="node-log"></div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+'use strict';
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let isPaused = false;
+let currentBlock = 20_150_000;
+let baseFee = 12.4;
+let epBalance = 2.481;
+let budgetSpent = 0.641;
+const DAILY_LIMIT = 1.0;
+
+const tokens = [
+  { sym:'USDC', addr:'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', feed:'0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', rate:3000, dec:6, active:true },
+  { sym:'DAI',  addr:'0x6B175474E89094C44Da98b954EedeAC495271d0F', feed:'0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9', rate:3000, dec:18, active:true },
+  { sym:'WETH', addr:'0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', feed:'0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', rate:1, dec:18, active:true },
+];
+
+const signers = [
+  { addr:'0xdEaD1234567890ABcDEF1234567890abcdef5678', role:'Primary', active:true },
+];
+
+const budgets = [
+  { addr:'0xabc1…def2', limit:0.05, spent:0.012 },
+  { addr:'0x9f3a…bc11', limit:0.10, spent:0.071 },
+  { addr:'0x1122…3344', limit:0.02, spent:0.002 },
+];
+
+const peers = [
+  { id:'16Uiu2HAmS…a7f3', ip:'31.14.200.82:30303', client:'Geth/v1.13', block:currentBlock-2, lat:18 },
+  { id:'16Uiu2HAm9…b1c2', ip:'104.21.43.11:30303', client:'Erigon/v2.6', block:currentBlock-1, lat:32 },
+  { id:'16Uiu2HAkZ…f9e4', ip:'54.203.112.77:30303', client:'Nethermind/v1.25', block:currentBlock, lat:11 },
+  { id:'16Uiu2HAmT…d22b', ip:'185.159.48.9:30303', client:'Besu/v23.7', block:currentBlock-3, lat:55 },
+];
+
+let allTx = [];
+let allBlocks = [];
+let logLines = [];
+let mempoolOps = [];
+
+// ─────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────
+const rnd=(a,b)=>Math.random()*(b-a)+a;
+const rndInt=(a,b)=>Math.floor(rnd(a,b+1));
+const hex=(n)=>'0x'+Math.floor(Math.random()*0xffffffff).toString(16).padStart(8,'0');
+const shortHash=()=>'0x'+[...Array(8)].map(()=>(Math.random()*0xf|0).toString(16)).join('')+'…';
+const shortAddr=()=>'0x'+[...Array(4)].map(()=>(Math.random()*0xf|0).toString(16)).join('')+'…'+[...Array(4)].map(()=>(Math.random()*0xf|0).toString(16)).join('');
+const ts=()=>new Date().toISOString().replace('T',' ').slice(0,19);
+
+function toast(msg,dur=2800){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+function copyChip(val){navigator.clipboard?.writeText(val);toast('Copied: '+val.slice(0,14)+'…');}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function nav(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// PAUSE
+// ─────────────────────────────────────────────
+function togglePause(){
+  isPaused=!isPaused;
+  const pill=document.getElementById('node-pill');
+  const lbl=document.getElementById('node-lbl');
+  const btn=document.getElementById('pause-btn');
+  if(isPaused){
+    pill.className='pill paused'; lbl.textContent='Paused';
+    btn.textContent='▶ Resume'; btn.classList.remove('danger');
+    addLog('WARN','Contract paused — sponsorship halted');
+    toast('⚠ Contract paused');
+  } else {
+    pill.className='pill live'; lbl.textContent='Synced';
+    btn.textContent='⏸ Pause'; btn.classList.add('danger');
+    addLog('OK','Contract resumed — sponsorship active');
+    toast('✓ Contract resumed');
+  }
+}
+
+// ─────────────────────────────────────────────
+// LIVE BLOCK / BASE FEE SIMULATION
+// ─────────────────────────────────────────────
+function tickBlock(){
+  currentBlock+=rndInt(0,1);
+  baseFee=parseFloat((baseFee*(0.93+Math.random()*0.14)).toFixed(2));
+  document.getElementById('live-block').textContent=currentBlock.toLocaleString();
+  document.getElementById('base-fee').textContent=baseFee.toFixed(2)+' gwei';
+  document.getElementById('nb-primary').textContent='#'+currentBlock.toLocaleString();
+  document.getElementById('nb-fallback').textContent='#'+(currentBlock-rndInt(0,2)).toLocaleString();
+  document.getElementById('bundler-q').textContent=rndInt(0,18);
+
+  // new block record
+  const blk={
+    num:currentBlock,
+    ts:ts(),
+    txns:rndInt(80,320),
+    gasUsed:(rnd(40,95)).toFixed(1)+'%',
+    baseFee:baseFee.toFixed(2)+' gwei',
+    miner:shortAddr()
+  };
+  allBlocks.unshift(blk);
+  if(allBlocks.length>50) allBlocks.pop();
+  renderBlocks();
+}
+
+// ─────────────────────────────────────────────
+// MEMPOOL SIMULATION
+// ─────────────────────────────────────────────
+function addMempoolOp(){
+  if(isPaused) return;
+  const modes=['Sponsored','ERC-20 (USDC)','ERC-20 (DAI)'];
+  const mc=['blue','green','purple'];
+  const mi=rndInt(0,2);
+  const op={hash:shortHash(),sender:shortAddr(),mode:mi,modeLbl:modes[mi],modeCol:mc[mi],
+    maxFee:(rnd(12,40)).toFixed(2)+' gwei',gasLimit:rndInt(100,400)+'k',ts:ts()};
+  mempoolOps.unshift(op);
+  if(mempoolOps.length>30) mempoolOps.pop();
+  document.getElementById('mp-badge').textContent=mempoolOps.length;
+  document.getElementById('mp-count-badge').textContent=mempoolOps.length+' pending';
+  renderMempool();
+}
+
+function renderMempool(){
+  const el=document.getElementById('mempool-list');
+  el.innerHTML=mempoolOps.map(op=>`
+    <div class="mp-row">
+      <div class="mp-dot" style="background:var(--${op.modeCol})"></div>
+      <span class="hash-link" onclick="toast('Hash: ${op.hash}')">${op.hash}</span>
+      <span class="mono">${op.sender}</span>
+      <span class="badge ${op.modeCol}">${op.modeLbl}</span>
+      <span style="margin-left:auto;font-size:10.5px;color:var(--muted)">maxFee ${op.maxFee} · ${op.gasLimit}</span>
+      <span class="mono" style="margin-left:10px">${op.ts.slice(11)}</span>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// CONFIRMED TX SIMULATION
+// ─────────────────────────────────────────────
+function confirmOp(){
+  if(isPaused || mempoolOps.length===0) return;
+  const op=mempoolOps.pop();
+  const gas=(rnd(0.0005,0.005)).toFixed(4);
+  const ok=Math.random()>0.04;
+  const tx={hash:op.hash,block:currentBlock,sender:op.sender,mode:op.modeLbl,
+    modeCol:op.modeCol,gas,status:ok?'Success':'Reverted',ts:op.ts};
+  allTx.unshift(tx);
+  if(allTx.length>200) allTx.pop();
+  if(ok) {
+    budgetSpent=Math.min(DAILY_LIMIT,budgetSpent+parseFloat(gas));
+    updateBudgetBar();
+  }
+  renderTxLog();
+  renderDashFeed();
+  addLog(ok?'OK':'WARN', (ok?'UserOp confirmed':'UserOp reverted')+' hash='+op.hash+' gas='+gas+' ETH');
+  document.getElementById('mp-badge').textContent=mempoolOps.length;
+  document.getElementById('mp-count-badge').textContent=mempoolOps.length+' pending';
+}
+
+// ─────────────────────────────────────────────
+// RENDER TX LOG
+// ─────────────────────────────────────────────
+function renderTxLog(){
+  const filter=document.getElementById('tx-filter')?.value||'All';
+  const rows=allTx.filter(tx=>{
+    if(filter==='All') return true;
+    if(filter==='Sponsored') return tx.mode==='Sponsored';
+    if(filter==='ERC-20') return tx.mode.startsWith('ERC-20');
+    if(filter==='Failed') return tx.status==='Reverted';
+    return true;
+  });
+  document.getElementById('tx-tbody').innerHTML=rows.slice(0,100).map(tx=>`
+    <tr>
+      <td><a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">${tx.hash}</a></td>
+      <td class="mono">${tx.block.toLocaleString()}</td>
+      <td class="mono">${tx.sender}</td>
+      <td><span class="badge ${tx.modeCol}">${tx.mode}</span></td>
+      <td class="mono">${tx.gas}</td>
+      <td><span class="badge ${tx.status==='Success'?'green':'red'}">${tx.status}</span></td>
+      <td><a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">Etherscan ↗</a></td>
+    </tr>`).join('');
+}
+function filterTx(){ renderTxLog(); }
+
+// ─────────────────────────────────────────────
+// DASHBOARD FEED
+// ─────────────────────────────────────────────
+function renderDashFeed(){
+  document.getElementById('dash-feed').innerHTML=allTx.slice(0,8).map(tx=>`
+    <div class="mp-row">
+      <div class="mp-dot" style="background:var(--${tx.status==='Success'?'green':'red'})"></div>
+      <a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">${tx.hash}</a>
+      <span class="mono">${tx.sender}</span>
+      <span class="badge ${tx.modeCol}">${tx.mode}</span>
+      <span style="margin-left:auto;font-size:10.5px;font-weight:700">${tx.gas} ETH</span>
+      <span class="badge ${tx.status==='Success'?'green':'red'}" style="margin-left:8px">${tx.status}</span>
+      <a class="hash-link" style="margin-left:8px" href="https://etherscan.io/tx/${tx.hash}" target="_blank">↗</a>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// BLOCKS TABLE
+// ─────────────────────────────────────────────
+function renderBlocks(){
+  document.getElementById('block-tbody').innerHTML=allBlocks.slice(0,20).map(b=>`
+    <tr>
+      <td><a class="hash-link" href="https://etherscan.io/block/${b.num}" target="_blank">${b.num.toLocaleString()}</a></td>
+      <td class="mono">${b.ts}</td>
+      <td>${b.txns}</td>
+      <td>${b.gasUsed}</td>
+      <td class="mono">${b.baseFee}</td>
+      <td class="mono">${b.miner}</td>
+      <td><a class="hash-link" href="https://etherscan.io/block/${b.num}" target="_blank">↗</a></td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// BUDGET BAR
+// ─────────────────────────────────────────────
+function updateBudgetBar(){
+  const pct=Math.min(100,Math.round(budgetSpent/DAILY_LIMIT*100));
+  document.getElementById('budget-bar').style.width=pct+'%';
+  document.getElementById('budget-pct-badge').textContent=pct+'% used';
+  document.getElementById('budget-spent-lbl').textContent=budgetSpent.toFixed(3)+' ETH spent';
+
+  const now=new Date();
+  const midnight=new Date(); midnight.setHours(24,0,0,0);
+  const diff=midnight-now;
+  const hh=String(Math.floor(diff/3600000)).padStart(2,'0');
+  const mm=String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
+  const ss=String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+  document.getElementById('budget-reset').textContent=`${hh}:${mm}:${ss}`;
+}
+
+// ─────────────────────────────────────────────
+// TOKEN TABLE
+// ─────────────────────────────────────────────
+function renderTokens(){
+  document.getElementById('token-tbody').innerHTML=tokens.map((t,i)=>`
+    <tr>
+      <td><strong>${t.sym}</strong></td>
+      <td><a class="addr" href="https://etherscan.io/token/${t.addr}" target="_blank">${t.addr.slice(0,10)}…${t.addr.slice(-6)}</a></td>
+      <td><a class="addr" href="https://etherscan.io/address/${t.feed}" target="_blank">${t.feed.slice(0,10)}…${t.feed.slice(-4)}</a></td>
+      <td class="mono">${Number(t.rate).toLocaleString()} ${t.sym}/ETH</td>
+      <td>${t.dec}</td>
+      <td><span class="badge ${t.active?'green':'amber'}">${t.active?'Active':'Paused'}</span></td>
+      <td><button class="btn sm" onclick="toggleToken(${i})">${t.active?'Disable':'Enable'}</button></td>
+    </tr>`).join('');
+}
+function toggleToken(i){ tokens[i].active=!tokens[i].active; renderTokens(); toast(tokens[i].sym+' '+(tokens[i].active?'enabled':'disabled')); }
+function addToken(){
+  const sym=document.getElementById('t-sym').value.trim();
+  const addr=document.getElementById('t-addr').value.trim();
+  const feed=document.getElementById('t-feed').value.trim();
+  const rate=parseInt(document.getElementById('t-rate').value)||3000;
+  const dec=parseInt(document.getElementById('t-dec').value)||18;
+  if(!sym||!addr){toast('Symbol and address required');return;}
+  tokens.push({sym,addr,feed:feed||'0x0000…',rate,dec,active:true});
+  renderTokens(); toast('Token added → call configureToken() on-chain to persist');
+}
+
+// ─────────────────────────────────────────────
+// BUDGET TABLE
+// ─────────────────────────────────────────────
+function renderBudgets(){
+  document.getElementById('budget-tbody').innerHTML=budgets.map(b=>{
+    const pct=b.limit>0?Math.round(b.spent/b.limit*100):0;
+    return `<tr>
+      <td class="mono">${b.addr}</td>
+      <td>${b.limit.toFixed(3)}</td>
+      <td>${b.spent.toFixed(3)}</td>
+      <td>${(b.limit-b.spent).toFixed(3)}</td>
+      <td><span class="badge ${pct>90?'red':pct>70?'amber':'green'}">${pct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+function setGlobalBudget(){ toast('Global budget updated → call setDailyBudget() on-chain to persist'); }
+function setUserBudget(){ const u=document.getElementById('budget-user').value; if(!u){toast('Enter a user address');return;} toast('User cap set → call setUserBudget() on-chain to persist'); }
+
+// ─────────────────────────────────────────────
+// PEERS
+// ─────────────────────────────────────────────
+function renderPeers(){
+  document.getElementById('peer-count').textContent=peers.length+' peers';
+  document.getElementById('peer-tbody').innerHTML=peers.map(p=>`
+    <tr>
+      <td class="mono">${p.id}</td>
+      <td class="mono">${p.ip}</td>
+      <td>${p.client}</td>
+      <td class="mono">${p.block.toLocaleString()}</td>
+      <td><span class="badge ${p.lat<30?'green':p.lat<60?'amber':'red'}">${p.lat}ms</span></td>
+      <td><span class="badge green">Connected</span></td>
+    </tr>`).join('');
+}
+function addPeer(){ const u=document.getElementById('peer-uri').value.trim(); if(!u){toast('Enter peer URI');return;} peers.push({id:u.slice(0,20)+'…',ip:'custom',client:'unknown',block:currentBlock,lat:rndInt(10,200)}); renderPeers(); toast('Peer added'); }
+
+// ─────────────────────────────────────────────
+// RPC TEST
+// ─────────────────────────────────────────────
+async function testRPC(){
+  const url=document.getElementById('rpc-primary').value.trim();
+  const res=document.getElementById('rpc-result');
+  res.style.display='block'; res.style.color='var(--muted)'; res.textContent='Testing connection…';
+  addLog('INFO','Testing primary RPC: '+url.slice(0,40)+'…');
+  if(!url||url.endsWith('/')||url.includes('YOUR_KEY')){
+    res.style.color='var(--amber)';
+    res.textContent='⚠ Please enter a valid RPC URL with your API key.';
+    addLog('WARN','RPC test skipped — placeholder URL detected');
+    return;
+  }
+  try {
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',method:'eth_blockNumber',params:[],id:1})});
+    const d=await r.json();
+    if(d.result){
+      const bn=parseInt(d.result,16);
+      currentBlock=bn;
+      document.getElementById('live-block').textContent=bn.toLocaleString();
+      document.getElementById('nb-primary').textContent='#'+bn.toLocaleString();
+      res.style.color='var(--green)';
+      res.textContent='✓ Connected — eth_blockNumber: '+bn.toLocaleString()+' (chainId: 1, Mainnet)';
+      addLog('OK','RPC connected — block #'+bn.toLocaleString());
+      // get base fee
+      const r2=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({jsonrpc:'2.0',method:'eth_gasPrice',params:[],id:2})});
+      const d2=await r2.json();
+      if(d2.result){ baseFee=(parseInt(d2.result,16)/1e9).toFixed(2); document.getElementById('base-fee').textContent=baseFee+' gwei'; addLog('INFO','eth_gasPrice: '+baseFee+' gwei'); }
+    } else {
+      res.style.color='var(--red)'; res.textContent='✗ RPC error: '+(d.error?.message||'No result');
+      addLog('ERR','RPC error: '+(d.error?.message||'unknown'));
+    }
+  } catch(e){
+    res.style.color='var(--red)'; res.textContent='✗ Network error: '+e.message;
+    addLog('ERR','RPC network error: '+e.message);
+  }
+}
+function saveRPC(){ toast('RPC config saved to session'); addLog('INFO','RPC config saved'); }
+
+// ─────────────────────────────────────────────
+// SIGNER KEY HANDLING
+// ─────────────────────────────────────────────
+function revealKey(n){
+  document.getElementById('mask-'+n).style.display='none';
+  document.getElementById('pk-'+n).focus();
+}
+function verifySigner(n){
+  const pk=document.getElementById('pk-'+n).value.trim();
+  const res=document.getElementById('signer-result-'+n);
+  if(!pk){ res.style.color='var(--amber)'; res.textContent='⚠ Enter a private key to verify'; return; }
+  if(!pk.match(/^0x[0-9a-fA-F]{64}$/)){
+    res.style.color='var(--red)'; res.textContent='✗ Invalid format — must be 0x + 64 hex chars'; return;
+  }
+  // Derive public address via secp256k1 keccak mock (display-only, real derivation needs ethers)
+  res.style.color='var(--green)';
+  res.textContent='✓ Valid private key format — deploy with ethers.js to derive address on-chain';
+  addLog('OK','Signer #'+n+' key format valid');
+  toast('Signer key valid — connect to live RPC to verify on-chain');
+}
+function rotateSigner(n){ addLog('WARN','Signer #'+n+' rotation initiated — sign tx to call setSigner() on-chain'); toast('Rotation: call setSigner(newAddr,true) then setSigner(oldAddr,false) on-chain'); }
+function activateBackup(){ addLog('WARN','Backup signer activated manually'); toast('Backup signer active — update signing backend URL'); }
+
+// ─────────────────────────────────────────────
+// DEPOSIT / WITHDRAW
+// ─────────────────────────────────────────────
+function setDeposit(v){ document.getElementById('dep-amt').value=v; }
+function doDeposit(){
+  const v=parseFloat(document.getElementById('dep-amt').value);
+  if(!v||isNaN(v)){toast('Enter an amount');return;}
+  epBalance=parseFloat((epBalance+v).toFixed(3));
+  document.getElementById('ep-balance').textContent=epBalance+' ETH';
+  document.getElementById('dep-balance').textContent=epBalance+' ETH';
+  document.getElementById('dep-ops').textContent='~'+(epBalance*10000).toFixed(0);
+  addLog('OK','deposit() called — '+v+' ETH → EntryPoint — sign real tx via your wallet');
+  toast('Simulated deposit: '+v+' ETH. Sign deposit() tx with your owner wallet on Mainnet.');
+}
+function doWithdraw(){
+  const a=document.getElementById('w-addr').value;
+  const v=document.getElementById('w-amt').value;
+  if(!a||!v){toast('Fill in all fields');return;}
+  addLog('WARN','withdrawTo('+a.slice(0,10)+','+v+' ETH) — sign tx to execute on-chain');
+  toast('Sign withdrawTo() tx with owner wallet on Mainnet');
+}
+function doWithdrawToken(){
+  const t=document.getElementById('wt-token').value;
+  const a=document.getElementById('wt-addr').value;
+  const v=document.getElementById('wt-amt').value;
+  if(!t||!a||!v){toast('Fill in all fields');return;}
+  addLog('INFO','ERC-20 withdrawToken('+t.slice(0,10)+','+v+') — sign tx to execute');
+  toast('Sign token withdrawal tx with owner wallet');
+}
+
+// ─────────────────────────────────────────────
+// NODE LOGS
+// ─────────────────────────────────────────────
+function addLog(lvl,msg){
+  logLines.unshift({ts:ts(),lvl,msg});
+  if(logLines.length>200) logLines.pop();
+  renderLog();
+}
+function renderLog(){
+  const filter=document.getElementById('log-filter')?.value||'ALL';
+  const lines=filter==='ALL'?logLines:logLines.filter(l=>l.lvl===filter);
+  document.getElementById('node-log').innerHTML=lines.map(l=>
+    `<div class="log-line"><span class="log-ts">${l.ts}</span><span class="log-lvl ${l.lvl.toLowerCase()}">${l.lvl}</span><span>${l.msg}</span></div>`
+  ).join('');
+}
+function filterLog(){ renderLog(); }
+function clearLog(){ logLines=[]; renderLog(); }
+
+// ─────────────────────────────────────────────
+// GAS CHART
+// ─────────────────────────────────────────────
+function buildChart(){
+  const ctx=document.getElementById('gasChart');
+  if(!ctx) return;
+  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en',{month:'short',day:'numeric'});});
+  const data=[0.19,0.24,0.18,0.31,0.22,0.41,0.29,0.52,0.38,0.45,0.57,0.49,0.61,0.641];
+  new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:'#3d7fff',backgroundColor:'rgba(61,127,255,0.07)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#3d7fff',fill:true,tension:.35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(3)} ETH`}}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#636a85',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#636a85',font:{size:9},callback:v=>`${v.toFixed(2)} ETH`}}}}});
+}
+
+// ─────────────────────────────────────────────
+// ABI COPY
+// ─────────────────────────────────────────────
+function copyABI(){
+  const abi=JSON.stringify([
+    {name:'deposit',type:'function',stateMutability:'payable',inputs:[],outputs:[]},
+    {name:'withdrawTo',type:'function',stateMutability:'nonpayable',inputs:[{name:'to',type:'address'},{name:'amount',type:'uint256'}],outputs:[]},
+    {name:'setSigner',type:'function',stateMutability:'nonpayable',inputs:[{name:'signer',type:'address'},{name:'active',type:'bool'}],outputs:[]},
+    {name:'configureToken',type:'function',stateMutability:'nonpayable',inputs:[{name:'token',type:'address'},{name:'feed',type:'address'},{name:'manualRate',type:'uint256'},{name:'decimals',type:'uint8'}],outputs:[]},
+    {name:'setDailyBudget',type:'function',stateMutability:'nonpayable',inputs:[{name:'weiPerDay',type:'uint256'}],outputs:[]},
+    {name:'setUserBudget',type:'function',stateMutability:'nonpayable',inputs:[{name:'user',type:'address'},{name:'weiLimit',type:'uint256'}],outputs:[]},
+    {name:'setPaused',type:'function',stateMutability:'nonpayable',inputs:[{name:'paused',type:'bool'}],outputs:[]},
+    {name:'getDeposit',type:'function',stateMutability:'view',inputs:[],outputs:[{type:'uint256'}]},
+    {name:'getRemainingDailyBudget',type:'function',stateMutability:'view',inputs:[],outputs:[{type:'uint256'}]},
+    {name:'getUserRemainingBudget',type:'function',stateMutability:'view',inputs:[{name:'user',type:'address'}],outputs:[{type:'uint256'}]},
+  ],null,2);
+  navigator.clipboard?.writeText(abi);
+  toast('ABI JSON copied to clipboard');
+}
+
+// ─────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────
+function exportCSV(){
+  const rows=[['Hash','Block','Sender','Mode','Gas(ETH)','Status','Timestamp'],...allTx.map(t=>[t.hash,t.block,t.sender,t.mode,t.gas,t.status,t.ts])];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='paymaster_tx_log.csv';
+  a.click();
+  toast('CSV exported');
+}
+
+// ─────────────────────────────────────────────
+// INIT & TICKERS
+// ─────────────────────────────────────────────
+function init(){
+  renderTokens(); renderBudgets(); renderPeers();
+  updateBudgetBar(); buildChart();
+  addLog('OK','VerifyingPaymaster Control Panel started');
+  addLog('INFO','EntryPoint: 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789');
+  addLog('INFO','Paymaster: 0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001');
+  addLog('INFO','Chain: Ethereum Mainnet (chainId: 1)');
+  addLog('INFO','Connect primary RPC in the RPC Endpoints panel to sync live data');
+  // seed a few initial blocks
+  for(let i=0;i<10;i++){
+    const bn=currentBlock-i;
+    allBlocks.push({num:bn,ts:ts(),txns:rndInt(80,320),gasUsed:rnd(40,95).toFixed(1)+'%',baseFee:rnd(8,25).toFixed(2)+' gwei',miner:shortAddr()});
+  }
+  renderBlocks();
+  // seed a few txs
+  for(let i=0;i<5;i++){
+    const m=rndInt(0,2);const mc=['blue','green','purple'];const ml=['Sponsored','ERC-20 (USDC)','ERC-20 (DAI)'];
+    allTx.push({hash:shortHash(),block:currentBlock-i,sender:shortAddr(),mode:ml[m],modeCol:mc[m],gas:rnd(0.0005,0.005).toFixed(4),status:'Success',ts:ts()});
+  }
+  renderTxLog(); renderDashFeed();
+}
+
+init();
+setInterval(tickBlock,12000);            // ~12s block time
+setInterval(addMempoolOp,2800);          // incoming ops
+setInterval(confirmOp,4500);             // confirm ops
+setInterval(updateBudgetBar,1000);       // reset countdown
+</script>
+</body>
+</html>
