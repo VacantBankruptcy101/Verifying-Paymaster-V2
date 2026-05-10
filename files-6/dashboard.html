@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VerifyingPaymaster — Control Panel</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg2: #111318;
+    --bg3: #181c24;
+    --bg4: #1e2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #7a8099;
+    --accent: #3d7fff;
+    --accent2: #5b8eff;
+    --green: #2ecc8f;
+    --green-bg: rgba(46,204,143,0.1);
+    --amber: #f5a623;
+    --amber-bg: rgba(245,166,35,0.1);
+    --red: #ff5c5c;
+    --red-bg: rgba(255,92,92,0.1);
+    --purple: #9b7fff;
+    --teal: #1ed6c0;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-brand { display: flex; align-items: center; gap: 10px; }
+  .brand-icon {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; color: #fff;
+  }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.3px; }
+  .brand-sub { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .topbar-status { display: flex; align-items: center; gap: 16px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 500;
+  }
+  .status-pill.live { background: var(--green-bg); color: var(--green); }
+  .status-pill.paused { background: var(--red-bg); color: var(--red); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .net-badge {
+    font-size: 11px; color: var(--muted);
+    background: var(--bg3); border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 4px;
+    font-family: var(--font-mono);
+  }
+  .pause-btn {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text); cursor: pointer;
+    font-size: 12px; font-weight: 500; transition: all 0.15s;
+  }
+  .pause-btn:hover { background: var(--bg4); }
+  .pause-btn.danger { border-color: var(--red); color: var(--red); }
+  .pause-btn.danger:hover { background: var(--red-bg); }
+
+  /* ── Layout ── */
+  .layout { display: flex; height: calc(100vh - 56px); }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 200px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nav-section { font-size: 10px; color: var(--muted); letter-spacing: 0.8px;
+    text-transform: uppercase; padding: 0 1rem 6px; margin-top: 12px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 1rem; cursor: pointer;
+    border-radius: 0; font-size: 13px; color: var(--muted);
+    transition: all 0.1s; user-select: none;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: var(--text); background: rgba(61,127,255,0.08);
+    border-left-color: var(--accent); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; }
+
+  /* ── Stat Cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.1rem;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.3px; }
+  .stat-value { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .stat-delta { font-size: 11px; margin-top: 4px; color: var(--green); }
+  .stat-delta.neg { color: var(--red); }
+  .stat-card.accent { border-color: rgba(61,127,255,0.3); background: rgba(61,127,255,0.05); }
+
+  /* ── Section Headers ── */
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .section-action {
+    font-size: 12px; color: var(--accent); cursor: pointer;
+    background: none; border: none; padding: 0;
+  }
+  .section-action:hover { text-decoration: underline; }
+
+  /* ── Two-col grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .one-col { margin-bottom: 1rem; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.1rem 1.2rem;
+  }
+
+  /* ── Budget Bar ── */
+  .budget-wrap { margin: 10px 0 4px; }
+  .budget-bar-bg { height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s; }
+  .budget-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+  /* ── Token Table ── */
+  .token-table { width: 100%; border-collapse: collapse; }
+  .token-table th {
+    text-align: left; font-size: 10px; color: var(--muted);
+    letter-spacing: 0.6px; text-transform: uppercase;
+    padding: 0 8px 8px; border-bottom: 1px solid var(--border);
+  }
+  .token-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .token-table tr:last-child td { border-bottom: none; }
+  .token-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .mono { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .badge {
+    display: inline-flex; align-items: center;
+    font-size: 10px; font-weight: 600; padding: 2px 7px;
+    border-radius: 4px; letter-spacing: 0.3px;
+  }
+  .badge.green { background: var(--green-bg); color: var(--green); }
+  .badge.red { background: var(--red-bg); color: var(--red); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber); }
+  .badge.blue { background: rgba(61,127,255,0.12); color: var(--accent2); }
+
+  /* ── Activity Feed ── */
+  .feed { display: flex; flex-direction: column; gap: 0; }
+  .feed-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .feed-row:last-child { border-bottom: none; }
+  .feed-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
+  }
+  .feed-dot.green { background: var(--green); }
+  .feed-dot.amber { background: var(--amber); }
+  .feed-dot.blue { background: var(--accent); }
+  .feed-dot.purple { background: var(--purple); }
+  .feed-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .feed-hash { font-family: var(--font-mono); font-size: 10px; color: var(--accent2); cursor: pointer; }
+  .feed-hash:hover { text-decoration: underline; }
+
+  /* ── Signer List ── */
+  .signer-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .signer-row:last-child { border-bottom: none; }
+  .signer-addr { font-family: var(--font-mono); font-size: 11px; }
+  .revoke-btn {
+    font-size: 11px; color: var(--red); background: none;
+    border: none; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; transition: background 0.1s;
+  }
+  .revoke-btn:hover { background: var(--red-bg); }
+
+  /* ── Forms ── */
+  .form-row { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .form-label { font-size: 11px; color: var(--muted); }
+  .form-input {
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); padding: 7px 10px; border-radius: 6px;
+    font-size: 12px; font-family: var(--font-mono);
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-btn {
+    padding: 7px 14px; border-radius: 6px;
+    background: var(--accent); border: none;
+    color: #fff; font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+  }
+  .form-btn:hover { opacity: 0.85; }
+  .form-btn.ghost {
+    background: transparent; border: 1px solid var(--border2); color: var(--text);
+  }
+  .form-btn.ghost:hover { background: var(--bg4); }
+
+  /* ── Deposit widget ── */
+  .deposit-row { display: flex; gap: 12px; margin-top: 10px; }
+  .deposit-quick {
+    flex: 1; padding: 10px; border-radius: 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    cursor: pointer; text-align: center; transition: border-color 0.15s;
+  }
+  .deposit-quick:hover { border-color: var(--accent); }
+  .deposit-quick .amount { font-size: 15px; font-weight: 600; }
+  .deposit-quick .label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Chart canvas ── */
+  .chart-area { position: relative; height: 130px; margin-top: 10px; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    padding: 10px 16px; border-radius: 8px; font-size: 13px;
+    opacity: 0; transform: translateY(8px);
+    transition: all 0.25s; pointer-events: none; z-index: 999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Panels (tab pages) ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Top Bar ── -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">P</div>
+    <span class="brand-name">VerifyingPaymaster</span>
+    <span class="brand-sub">ERC-4337</span>
+  </div>
+  <div class="topbar-status">
+    <span class="net-badge">Sepolia Testnet</span>
+    <span class="net-badge" id="contract-addr" style="cursor:pointer" onclick="copyAddr()">0x4a9e…c7f2</span>
+    <span class="status-pill live" id="status-pill">
+      <span class="status-dot"></span>
+      <span id="status-label">Live</span>
+    </span>
+    <button class="pause-btn danger" id="pause-btn" onclick="togglePause()">Pause Contract</button>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" onclick="showPanel('dashboard',this)">
+    <span class="nav-icon">◈</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="showPanel('activity',this)">
+    <span class="nav-icon">⟳</span> Activity
+  </div>
+
+  <div class="nav-section">Configuration</div>
+  <div class="nav-item" onclick="showPanel('tokens',this)">
+    <span class="nav-icon">◎</span> Tokens
+  </div>
+  <div class="nav-item" onclick="showPanel('signers',this)">
+    <span class="nav-icon">⬡</span> Signers
+  </div>
+  <div class="nav-item" onclick="showPanel('budgets',this)">
+    <span class="nav-icon">▤</span> Budgets
+  </div>
+
+  <div class="nav-section">Finance</div>
+  <div class="nav-item" onclick="showPanel('deposit',this)">
+    <span class="nav-icon">↓</span> Deposit
+  </div>
+  <div class="nav-item" onclick="showPanel('withdraw',this)">
+    <span class="nav-icon">↑</span> Withdraw
+  </div>
+
+  <div class="nav-section">Docs</div>
+  <div class="nav-item" onclick="showPanel('abi',this)">
+    <span class="nav-icon">{ }</span> ABI / SDK
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main">
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div class="panel active" id="panel-dashboard">
+
+  <div class="stat-grid">
+    <div class="stat-card accent">
+      <div class="stat-label">EntryPoint Deposit</div>
+      <div class="stat-value" style="color:var(--accent2)">0.318 ETH</div>
+      <div class="stat-delta">≈ $955 at $3,005</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ops Sponsored (24h)</div>
+      <div class="stat-value">1,284</div>
+      <div class="stat-delta">↑ 12% vs yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Gas Spent (24h)</div>
+      <div class="stat-value">0.182 ETH</div>
+      <div class="stat-delta neg">↑ 8% vs yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ERC-20 Collected</div>
+      <div class="stat-value">$4,210</div>
+      <div class="stat-delta">USDC + DAI</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Daily Budget -->
+    <div class="card">
+      <div class="section-head">
+        <span class="section-title">Daily Global Budget</span>
+        <span class="badge amber">36% used</span>
+      </div>
+      <div class="budget-wrap">
+        <div class="budget-bar-bg">
+          <div class="budget-bar-fill" id="daily-bar"
+            style="width:36%;background:linear-gradient(90deg,var(--accent),var(--teal))"></div>
+        </div>
+        <div class="budget-meta">
+          <span>0.182 ETH spent</span>
+          <span>Limit: 0.5 ETH / day</span>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted)">
+        Resets in <span style="color:var(--text);font-weight:600">14h 22m</span>
+      </div>
+    </div>
+
+    <!-- Mode Breakdown -->
+    <div class="card">
+      <div class="section-head">
+        <span class="section-title">Sponsorship Modes (24h)</span>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:8px;align-items:center">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></div>
+            <span style="font-size:12px">Sponsored</span>
+            <span style="margin-left:auto;font-size:13px;font-weight:600">847</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:2px;background:var(--teal)"></div>
+            <span style="font-size:12px">ERC-20</span>
+            <span style="margin-left:auto;font-size:13px;font-weight:600">437</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 60 60" width="60" height="60">
+          <circle cx="30" cy="30" r="24" fill="none" stroke="var(--bg4)" stroke-width="10"/>
+          <circle cx="30" cy="30" r="24" fill="none" stroke="var(--accent)" stroke-width="10"
+            stroke-dasharray="90.7 60.4" stroke-dashoffset="25" />
+          <circle cx="30" cy="30" r="24" fill="none" stroke="var(--teal)" stroke-width="10"
+            stroke-dasharray="46.7 104.4" stroke-dashoffset="-65.7" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gas chart -->
+  <div class="card one-col">
+    <div class="section-head">
+      <span class="section-title">Gas Spend — Last 14 Days</span>
+      <span style="font-size:11px;color:var(--muted)">ETH</span>
+    </div>
+    <div class="chart-area">
+      <canvas id="gasChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Recent ops -->
+  <div class="card one-col">
+    <div class="section-head">
+      <span class="section-title">Recent UserOperations</span>
+      <button class="section-action" onclick="showPanel('activity',document.querySelector('[onclick*=activity]'))">View all →</button>
+    </div>
+    <div class="feed" id="recent-feed"></div>
+  </div>
+</div>
+
+<!-- ════════════════ ACTIVITY ════════════════ -->
+<div class="panel" id="panel-activity">
+  <div class="card">
+    <div class="section-head">
+      <span class="section-title">All UserOperations</span>
+      <span style="font-size:11px;color:var(--muted)">Live feed (simulated)</span>
+    </div>
+    <div class="feed" id="all-feed" style="max-height:520px;overflow-y:auto;padding-right:4px"></div>
+  </div>
+</div>
+
+<!-- ════════════════ TOKENS ════════════════ -->
+<div class="panel" id="panel-tokens">
+  <div class="card one-col">
+    <div class="section-head">
+      <span class="section-title">Accepted ERC-20 Tokens</span>
+    </div>
+    <table class="token-table" style="margin-top:8px">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Address</th>
+          <th>Rate (tokens / ETH)</th>
+          <th>Decimals</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="token-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card one-col" style="margin-top:1rem">
+    <div class="section-title" style="margin-bottom:10px">Add / Update Token</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Token Address</label>
+        <input class="form-input" id="t-addr" placeholder="0x…" style="width:100%"/>
+      </div>
+      <div class="form-group" style="flex:0 0 120px">
+        <label class="form-label">Rate (per ETH)</label>
+        <input class="form-input" id="t-rate" placeholder="3000" style="width:100%"/>
+      </div>
+      <div class="form-group" style="flex:0 0 80px">
+        <label class="form-label">Decimals</label>
+        <input class="form-input" id="t-dec" placeholder="6" style="width:100%"/>
+      </div>
+      <button class="form-btn" onclick="addToken()">Add Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ SIGNERS ════════════════ -->
+<div class="panel" id="panel-signers">
+  <div class="card one-col">
+    <div class="section-head">
+      <span class="section-title">Authorised Signers</span>
+      <span class="badge blue">Hot-wallet backend</span>
+    </div>
+    <div id="signer-list" style="margin-top:8px"></div>
+  </div>
+  <div class="card one-col" style="margin-top:1rem">
+    <div class="section-title" style="margin-bottom:10px">Add Signer</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Wallet Address</label>
+        <input class="form-input" id="new-signer" placeholder="0x…" style="width:100%"/>
+      </div>
+      <button class="form-btn" onclick="addSigner()">Authorise</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ BUDGETS ════════════════ -->
+<div class="panel" id="panel-budgets">
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px">Global Daily Limit</div>
+      <div class="form-group">
+        <label class="form-label">Max ETH per Day (0 = unlimited)</label>
+        <div class="form-row" style="margin-top:0">
+          <input class="form-input" id="global-budget" placeholder="0.5" style="flex:1"/>
+          <button class="form-btn" onclick="setGlobalBudget()">Update</button>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+        Current: <span style="color:var(--text);font-weight:600">0.5 ETH / day</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px">Per-User Spending Cap</div>
+      <div class="form-group">
+        <label class="form-label">User Address</label>
+        <input class="form-input" id="budget-user" placeholder="0x…" style="width:100%;margin-bottom:6px"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max ETH (0 = unlimited)</label>
+        <div class="form-row" style="margin-top:0">
+          <input class="form-input" id="budget-amount" placeholder="0.01" style="flex:1"/>
+          <button class="form-btn" onclick="setUserBudget()">Set Cap</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card one-col" style="margin-top:1rem">
+    <div class="section-head">
+      <span class="section-title">User Budget Ledger</span>
+    </div>
+    <table class="token-table" style="margin-top:8px">
+      <thead>
+        <tr>
+          <th>Address</th>
+          <th>Budget (ETH)</th>
+          <th>Spent (ETH)</th>
+          <th>Remaining</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="budget-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════ DEPOSIT ════════════════ -->
+<div class="panel" id="panel-deposit">
+  <div class="card one-col" style="max-width:500px">
+    <div class="section-title" style="margin-bottom:4px">Deposit to EntryPoint</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+      ETH deposited here is held by the EntryPoint contract and debited as UserOperations are sponsored.
+    </p>
+    <div class="deposit-row" id="quick-deposits"></div>
+    <div style="margin:12px 0;font-size:11px;color:var(--muted);text-align:center">or enter custom amount</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ETH Amount</label>
+        <input class="form-input" id="deposit-amt" placeholder="0.1" style="width:100%"/>
+      </div>
+      <button class="form-btn" onclick="doDeposit()">Deposit ETH</button>
+    </div>
+    <div style="margin-top:14px;padding:10px;background:var(--bg3);border-radius:6px">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span style="color:var(--muted)">Current EP balance</span>
+        <span style="font-weight:600;color:var(--accent2)">0.318 ETH</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px">
+        <span style="color:var(--muted)">Estimated ops remaining</span>
+        <span style="font-weight:600">~3,520</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ WITHDRAW ════════════════ -->
+<div class="panel" id="panel-withdraw">
+  <div class="two-col">
+    <div class="card" style="max-width:100%">
+      <div class="section-title" style="margin-bottom:4px">Withdraw ETH</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Pull ETH back from EntryPoint.</p>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="form-label">Recipient Address</label>
+        <input class="form-input" id="w-addr" placeholder="0x…" style="width:100%"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (ETH)</label>
+          <input class="form-input" id="w-amt" placeholder="0.1" style="width:100%"/>
+        </div>
+        <button class="form-btn" style="background:var(--amber);color:#000" onclick="doWithdraw()">Withdraw</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:4px">Withdraw ERC-20</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Collect accumulated token fees.</p>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="form-label">Token Address</label>
+        <input class="form-input" id="wt-token" placeholder="0x…" style="width:100%"/>
+      </div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="form-label">Recipient</label>
+        <input class="form-input" id="wt-addr" placeholder="0x…" style="width:100%"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount</label>
+          <input class="form-input" id="wt-amt" placeholder="100.0" style="width:100%"/>
+        </div>
+        <button class="form-btn" style="background:var(--teal);color:#000" onclick="doWithdrawToken()">Withdraw</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ABI / SDK ════════════════ -->
+<div class="panel" id="panel-abi">
+  <div class="card one-col">
+    <div class="section-title" style="margin-bottom:12px">paymasterAndData Layout</div>
+    <table class="token-table">
+      <thead><tr><th>Bytes</th><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">[0:20]</td><td>paymaster</td><td class="mono">address</td><td style="color:var(--muted)">Stripped by EntryPoint before passing to contract</td></tr>
+        <tr><td class="mono">[20]</td><td>mode</td><td class="mono">uint8</td><td style="color:var(--muted)">0 = sponsored · 1 = ERC-20</td></tr>
+        <tr><td class="mono">[21:27]</td><td>validUntil</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix ts; 0 = no expiry</td></tr>
+        <tr><td class="mono">[27:33]</td><td>validAfter</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix ts; 0 = immediate</td></tr>
+        <tr><td class="mono">[33:53]</td><td>token</td><td class="mono">address</td><td style="color:var(--muted)">Zero address for sponsored mode</td></tr>
+        <tr><td class="mono">[53:118]</td><td>signature</td><td class="mono">bytes65</td><td style="color:var(--muted)">ECDSA over keccak256(userOpHash ‖ chainId ‖ mode ‖ validUntil ‖ validAfter ‖ token)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card one-col" style="margin-top:1rem">
+    <div class="section-title" style="margin-bottom:10px">JS SDK — Sign a UserOperation</div>
+    <pre style="font-size:11px;font-family:var(--font-mono);color:var(--muted);line-height:1.7;overflow-x:auto"><code style="color:var(--text)"><span style="color:#9b7fff">const</span> { buildPaymasterData, MODE_SPONSORED } = <span style="color:#f5a623">require</span>(<span style="color:#2ecc8f">'./scripts/paymasterSigner'</span>);
+
+<span style="color:#9b7fff">const</span> paymasterAndData = <span style="color:#f5a623">await</span> buildPaymasterData({
+  paymasterAddress: <span style="color:#2ecc8f">'0x4a9e…c7f2'</span>,
+  userOpHash,           <span style="color:var(--muted)">// from EntryPoint</span>
+  signerWallet,         <span style="color:var(--muted)">// ethers.Signer (hot-key backend)</span>
+  mode: MODE_SPONSORED,
+  validUntilSec: Math.floor(Date.now() / 1000) + 300,
+});
+
+<span style="color:var(--muted)">// Attach to UserOperation before submitting to bundler</span>
+userOp.paymasterAndData = paymasterAndData;</code></pre>
+  </div>
+
+  <div class="card one-col" style="margin-top:1rem">
+    <div class="section-title" style="margin-bottom:10px">Key Contract Methods</div>
+    <table class="token-table">
+      <thead><tr><th>Method</th><th>Access</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">deposit()</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Deposit ETH to EntryPoint</td></tr>
+        <tr><td class="mono">withdraw(to, amt)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Pull ETH back from EntryPoint</td></tr>
+        <tr><td class="mono">setSigner(addr, bool)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Add/revoke a signer</td></tr>
+        <tr><td class="mono">configureToken(…)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Add/update ERC-20 token config</td></tr>
+        <tr><td class="mono">setDailyBudget(wei)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Set global daily gas cap</td></tr>
+        <tr><td class="mono">setUserBudget(user, wei)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Set per-user gas cap</td></tr>
+        <tr><td class="mono">setPaused(bool)</td><td><span class="badge blue">owner</span></td><td style="color:var(--muted)">Circuit breaker</td></tr>
+        <tr><td class="mono">getDeposit()</td><td><span class="badge green">public</span></td><td style="color:var(--muted)">Current EntryPoint deposit balance</td></tr>
+        <tr><td class="mono">getRemainingDailyBudget()</td><td><span class="badge green">public</span></td><td style="color:var(--muted)">Remaining daily global budget</td></tr>
+        <tr><td class="mono">getUserRemainingBudget(user)</td><td><span class="badge green">public</span></td><td style="color:var(--muted)">Remaining budget for a user</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────
+let isPaused = false;
+
+const tokens = [
+  { sym:'USDC', addr:'0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', rate:'3000', dec:6, active:true },
+  { sym:'DAI',  addr:'0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', rate:'3000', dec:18, active:true },
+];
+
+const signers = [
+  '0xdEaD1234…5678 (primary backend signer)',
+];
+
+const budgets = [
+  { addr:'0xabc1…def2', budget:0.05, spent:0.012 },
+  { addr:'0x9f3a…bc11', budget:0.1,  spent:0.071 },
+  { addr:'0x1122…3344', budget:0.02, spent:0.002 },
+];
+
+// ── Panel navigation ───────────────────────────────────────
+function showPanel(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ── Toast ──────────────────────────────────────────────────
+function toast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── Pause ──────────────────────────────────────────────────
+function togglePause() {
+  isPaused = !isPaused;
+  const pill = document.getElementById('status-pill');
+  const label = document.getElementById('status-label');
+  const btn = document.getElementById('pause-btn');
+  if (isPaused) {
+    pill.className = 'status-pill paused';
+    label.textContent = 'Paused';
+    btn.textContent = 'Resume Contract';
+    btn.className = 'pause-btn';
+    toast('⚠ Contract paused — no UserOps will be sponsored');
+  } else {
+    pill.className = 'status-pill live';
+    label.textContent = 'Live';
+    btn.textContent = 'Pause Contract';
+    btn.className = 'pause-btn danger';
+    toast('✓ Contract resumed');
+  }
+}
+
+// ── Copy address ───────────────────────────────────────────
+function copyAddr() {
+  navigator.clipboard?.writeText('0x4a9e…c7f2');
+  toast('Address copied');
+}
+
+// ── Activity feed data ─────────────────────────────────────
+const SENDERS = ['0x3f2a','0x9b1c','0x7d44','0xaabc','0x1122','0xff00'];
+const MODES = ['Sponsored','ERC-20 (USDC)','ERC-20 (DAI)'];
+const MODE_COLORS = ['blue','green','purple'];
+
+function rnd(a,b) { return Math.floor(Math.random()*(b-a+1))+a; }
+function fakeOp() {
+  const m = rnd(0,2);
+  return {
+    sender: SENDERS[rnd(0,SENDERS.length-1)],
+    mode: m,
+    gas: (rnd(80,350)/1000).toFixed(3),
+    hash: '0x'+Math.random().toString(16).slice(2,10),
+    ago: rnd(1,59)+'s ago'
+  };
+}
+
+function opHtml(op) {
+  return `<div class="feed-row">
+    <div class="feed-dot ${MODE_COLORS[op.mode]}"></div>
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="mono">${op.sender}…</span>
+        <span class="badge ${op.mode===0?'blue':op.mode===1?'green':'amber'}">${MODES[op.mode]}</span>
+        <span style="margin-left:auto;font-size:12px;font-weight:600">${op.gas} ETH</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:2px">
+        <span class="feed-hash">${op.hash}</span>
+        <span class="feed-meta">${op.ago}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFeeds() {
+  const ops = Array.from({length:8},fakeOp);
+  document.getElementById('recent-feed').innerHTML = ops.map(opHtml).join('');
+  const all = Array.from({length:30},fakeOp);
+  document.getElementById('all-feed').innerHTML = all.map(opHtml).join('');
+}
+
+// ── Token table ────────────────────────────────────────────
+function renderTokens() {
+  document.getElementById('token-tbody').innerHTML = tokens.map((t,i) => `
+    <tr>
+      <td><strong>${t.sym}</strong></td>
+      <td><span class="mono">${t.addr.slice(0,10)}…${t.addr.slice(-6)}</span></td>
+      <td>${Number(t.rate).toLocaleString()} ${t.sym}/ETH</td>
+      <td>${t.dec}</td>
+      <td><span class="badge ${t.active?'green':'red'}">${t.active?'Active':'Paused'}</span></td>
+      <td>
+        <button class="revoke-btn" onclick="toggleToken(${i})">${t.active?'Disable':'Enable'}</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function toggleToken(i) {
+  tokens[i].active = !tokens[i].active;
+  renderTokens();
+  toast(`${tokens[i].sym} ${tokens[i].active?'enabled':'disabled'}`);
+}
+
+function addToken() {
+  const addr = document.getElementById('t-addr').value.trim();
+  const rate = document.getElementById('t-rate').value.trim();
+  const dec  = parseInt(document.getElementById('t-dec').value.trim()) || 18;
+  if (!addr || !rate) { toast('Fill in address and rate'); return; }
+  tokens.push({ sym:'TOKEN', addr, rate, dec, active:true });
+  renderTokens();
+  toast('Token added (simulated — call configureToken() on-chain)');
+}
+
+// ── Signers ────────────────────────────────────────────────
+function renderSigners() {
+  document.getElementById('signer-list').innerHTML = signers.map((s,i) => `
+    <div class="signer-row">
+      <span class="signer-addr">${s}</span>
+      <button class="revoke-btn" onclick="revokeSigner(${i})">Revoke</button>
+    </div>
+  `).join('');
+}
+
+function revokeSigner(i) {
+  signers.splice(i,1);
+  renderSigners();
+  toast('Signer revoked (simulated)');
+}
+
+function addSigner() {
+  const addr = document.getElementById('new-signer').value.trim();
+  if (!addr) { toast('Enter a wallet address'); return; }
+  signers.push(addr);
+  renderSigners();
+  document.getElementById('new-signer').value = '';
+  toast('Signer added (simulated)');
+}
+
+// ── Budgets ────────────────────────────────────────────────
+function renderBudgets() {
+  document.getElementById('budget-tbody').innerHTML = budgets.map(b => {
+    const pct = b.budget>0 ? Math.round(b.spent/b.budget*100) : 0;
+    const rem = b.budget - b.spent;
+    const cls = pct>90?'red':pct>70?'amber':'green';
+    return `<tr>
+      <td><span class="mono">${b.addr}</span></td>
+      <td>${b.budget.toFixed(3)}</td>
+      <td>${b.spent.toFixed(3)}</td>
+      <td>${rem.toFixed(3)}</td>
+      <td><span class="badge ${cls}">${pct}% used</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function setGlobalBudget() {
+  const v = document.getElementById('global-budget').value;
+  toast(`Daily budget set to ${v||'0'} ETH (simulated)`);
+}
+function setUserBudget() {
+  const u = document.getElementById('budget-user').value;
+  const a = document.getElementById('budget-amount').value;
+  if (!u) { toast('Enter a user address'); return; }
+  toast(`Budget set for ${u.slice(0,8)}… → ${a||'0'} ETH`);
+}
+
+// ── Deposit / Withdraw ─────────────────────────────────────
+function renderQuickDeposits() {
+  const amounts = [['0.1 ETH','~1,000 ops'],['0.5 ETH','~5,000 ops'],['1 ETH','~10,000 ops']];
+  document.getElementById('quick-deposits').innerHTML = amounts.map(([a,l]) => `
+    <div class="deposit-quick" onclick="document.getElementById('deposit-amt').value='${a.split(' ')[0]}'">
+      <div class="amount">${a}</div>
+      <div class="label">${l}</div>
+    </div>
+  `).join('');
+}
+
+function doDeposit() {
+  const v = document.getElementById('deposit-amt').value;
+  if (!v) { toast('Enter an amount'); return; }
+  toast(`Deposited ${v} ETH to EntryPoint (simulated)`);
+}
+function doWithdraw() {
+  const a = document.getElementById('w-addr').value;
+  const v = document.getElementById('w-amt').value;
+  if (!a||!v) { toast('Fill in all fields'); return; }
+  toast(`Withdrawn ${v} ETH to ${a.slice(0,8)}… (simulated)`);
+}
+function doWithdrawToken() {
+  const t = document.getElementById('wt-token').value;
+  const a = document.getElementById('wt-addr').value;
+  const v = document.getElementById('wt-amt').value;
+  if (!t||!a||!v) { toast('Fill in all fields'); return; }
+  toast(`Token withdrawal initiated (simulated)`);
+}
+
+// ── Gas chart ──────────────────────────────────────────────
+function renderChart() {
+  const ctx = document.getElementById('gasChart');
+  if (!ctx) return;
+  const labels = Array.from({length:14},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-13+i);
+    return d.toLocaleDateString('en',{month:'short',day:'numeric'});
+  });
+  const data = [0.08,0.12,0.09,0.15,0.11,0.18,0.14,0.21,0.17,0.13,0.19,0.22,0.16,0.182];
+  new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data,
+        borderColor:'#3d7fff',
+        backgroundColor:'rgba(61,127,255,0.08)',
+        borderWidth:2,
+        pointRadius:3,
+        pointBackgroundColor:'#3d7fff',
+        fill:true,
+        tension:0.35,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        callbacks:{ label: ctx=>`${ctx.parsed.y.toFixed(3)} ETH` }
+      }},
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#7a8099',font:{size:10}} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#7a8099',font:{size:10},
+          callback:v=>`${v.toFixed(2)} ETH`} }
+      }
+    }
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────
+renderFeeds();
+renderTokens();
+renderSigners();
+renderBudgets();
+renderQuickDeposits();
+renderChart();
+
+// Live feed pulse
+setInterval(() => {
+  const feed = document.getElementById('all-feed');
+  if (!feed) return;
+  const op = fakeOp();
+  op.ago = 'just now';
+  feed.insertAdjacentHTML('afterbegin', opHtml(op));
+  const rows = feed.querySelectorAll('.feed-row');
+  if (rows.length > 40) rows[rows.length-1].remove();
+}, 3500);
+</script>
+</body>
+</html>
