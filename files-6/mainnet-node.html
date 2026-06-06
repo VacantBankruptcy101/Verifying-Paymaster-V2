@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta 
+  name="base:app-id"
+  content="6a245fe40e3253e7acad21de"/>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VerifyingPaymaster — Mainnet Production</title>
+<style>
+:root {
+  --bg:#07090f;--bg2:#0d1017;--bg3:#131720;--bg4:#1a1f2e;--bg5:#1f2538;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#e2e6f3;--muted:#636a85;--dim:#3d4460;
+  --accent:#3d7fff;--accent2:#5b8eff;--accent3:rgba(61,127,255,0.12);
+  --green:#1fc97a;--green-bg:rgba(31,201,122,0.1);
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.1);
+  --red:#ff4f4f;--red-bg:rgba(255,79,79,0.1);
+  --purple:#9b7fff;--teal:#1ed6c0;--cyan:#00d4ff;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',sans-serif;font-size:13px;min-height:100vh;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:2px;}
+
+/* topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-icon{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
+.brand-name{font-weight:700;font-size:14px;letter-spacing:-.4px;}
+.brand-tag{font-size:10px;color:var(--muted);margin-left:2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill.live{background:var(--green-bg);color:var(--green);}
+.pill.paused{background:var(--red-bg);color:var(--red);}
+.pill.syncing{background:rgba(0,212,255,0.1);color:var(--cyan);}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.chip{font-size:10px;font-family:var(--mono);color:var(--muted);background:var(--bg3);border:1px solid var(--border);padding:2px 7px;border-radius:4px;cursor:pointer;transition:.15s;}
+.chip:hover{border-color:var(--accent2);color:var(--text);}
+.btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:11px;font-weight:600;transition:.15s;}
+.btn:hover{background:var(--bg4);}
+.btn.danger{border-color:var(--red);color:var(--red);}
+.btn.danger:hover{background:var(--red-bg);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.primary:hover{opacity:.85;}
+.btn.sm{padding:4px 10px;font-size:11px;}
+
+/* layout */
+.layout{display:flex;height:calc(100vh - 52px);}
+
+/* sidebar */
+.sidebar{width:192px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);padding:1rem 0;display:flex;flex-direction:column;overflow-y:auto;}
+.nav-sec{font-size:9.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);padding:0 1rem 5px;margin-top:10px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:6px 1rem;cursor:pointer;color:var(--muted);font-size:12px;border-left:2px solid transparent;transition:.1s;user-select:none;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.025);}
+.nav-item.active{color:var(--text);background:var(--accent3);border-left-color:var(--accent);}
+.nav-icon{width:16px;text-align:center;font-size:14px;}
+.nav-badge{margin-left:auto;font-size:10px;background:var(--accent3);color:var(--accent2);padding:1px 5px;border-radius:3px;}
+
+/* main */
+.main{flex:1;overflow-y:auto;padding:1.25rem 1.5rem;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:.9rem 1rem;}
+.stat.hi{border-color:rgba(61,127,255,.25);background:rgba(61,127,255,.04);}
+.stat-lbl{font-size:10px;color:var(--muted);letter-spacing:.3px;margin-bottom:5px;}
+.stat-val{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.stat-sub.up{color:var(--green);}
+.stat-sub.dn{color:var(--red);}
+
+/* cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:1rem 1.1rem;margin-bottom:1rem;}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.card-title{font-size:12px;font-weight:700;color:var(--text);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{text-align:left;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);padding:0 8px 7px;border-bottom:1px solid var(--border);}
+.tbl td{padding:8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.015);}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.3px;}
+.badge.green{background:var(--green-bg);color:var(--green);}
+.badge.red{background:var(--red-bg);color:var(--red);}
+.badge.amber{background:var(--amber-bg);color:var(--amber);}
+.badge.blue{background:var(--accent3);color:var(--accent2);}
+.badge.purple{background:rgba(155,127,255,.12);color:var(--purple);}
+.badge.cyan{background:rgba(0,212,255,.1);color:var(--cyan);}
+
+/* mono / addr */
+.mono{font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+.addr{font-family:var(--mono);font-size:10.5px;color:var(--accent2);cursor:pointer;}
+.addr:hover{text-decoration:underline;}
+
+/* forms */
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:10px;color:var(--muted);}
+.fi{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:6px 9px;border-radius:6px;font-size:11px;font-family:var(--mono);outline:none;width:100%;transition:.15s;}
+.fi:focus{border-color:var(--accent);}
+.fi.secret{letter-spacing:2px;color:var(--amber);}
+.frow{display:flex;gap:7px;align-items:flex-end;}
+.fi-group{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+textarea.fi{resize:vertical;min-height:72px;letter-spacing:.5px;}
+
+/* progress bar */
+.bar-bg{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin:6px 0;}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s;}
+
+/* log / feed */
+.log-wrap{max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:10.5px;line-height:1.8;}
+.log-line{display:flex;gap:8px;border-bottom:1px solid rgba(255,255,255,.03);padding:2px 0;}
+.log-ts{color:var(--dim);flex-shrink:0;}
+.log-lvl{flex-shrink:0;width:40px;}
+.log-lvl.info{color:var(--accent2);}
+.log-lvl.ok{color:var(--green);}
+.log-lvl.warn{color:var(--amber);}
+.log-lvl.err{color:var(--red);}
+
+/* mempool */
+.mp-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.mp-row:last-child{border-bottom:none;}
+.mp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* hash link */
+.hash-link{font-family:var(--mono);font-size:10px;color:var(--accent2);cursor:pointer;text-decoration:none;}
+.hash-link:hover{text-decoration:underline;}
+
+/* chart */
+.chart-wrap{position:relative;height:120px;margin-top:8px;}
+
+/* warn box */
+.warn-box{display:flex;gap:10px;align-items:flex-start;background:var(--amber-bg);border:1px solid rgba(245,166,35,.25);border-radius:7px;padding:10px 12px;margin-bottom:1rem;font-size:11px;color:var(--amber);}
+
+/* key reveal */
+.key-reveal-wrap{position:relative;}
+.key-mask{position:absolute;inset:0;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);cursor:pointer;z-index:5;transition:.2s;}
+.key-mask:hover{background:var(--bg4);color:var(--text);}
+
+/* node status bar */
+.node-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.node-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;}
+.node-name{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.node-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;}
+.node-block{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px;}
+
+/* toast */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border2);padding:9px 14px;border-radius:7px;font-size:12px;opacity:0;transform:translateY(6px);transition:.2s;pointer-events:none;z-index:999;}
+#toast.show{opacity:1;transform:translateY(0);}
+
+/* explorer link */
+.explorer-link{font-size:10px;color:var(--accent2);cursor:pointer;}
+.explorer-link:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <span class="brand-name">VerifyingPaymaster</span>
+    <span class="brand-tag">ERC-4337 · Mainnet</span>
+  </div>
+  <div class="topbar-right">
+    <span class="chip" id="block-chip">Block #<span id="live-block">0</span></span>
+    <span class="chip" id="contract-chip" onclick="copyChip('0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001')" title="Click to copy">0x4a9e…0001</span>
+    <span class="pill live" id="node-pill"><span class="dot"></span><span id="node-lbl">Synced</span></span>
+    <button class="btn danger" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="nav-sec">Monitor</div>
+  <div class="nav-item active" onclick="nav('dashboard',this)"><span class="nav-icon">◈</span>Dashboard</div>
+  <div class="nav-item" onclick="nav('mempool',this)"><span class="nav-icon">⟳</span>Mempool<span class="nav-badge" id="mp-badge">0</span></div>
+  <div class="nav-item" onclick="nav('blocks',this)"><span class="nav-icon">▣</span>Blocks</div>
+  <div class="nav-item" onclick="nav('txlog',this)"><span class="nav-icon">≡</span>Tx Log</div>
+
+  <div class="nav-sec">Node Config</div>
+  <div class="nav-item" onclick="nav('rpc',this)"><span class="nav-icon">⬡</span>RPC Endpoints</div>
+  <div class="nav-item" onclick="nav('keys',this)"><span class="nav-icon">🔑</span>Signer Keys</div>
+  <div class="nav-item" onclick="nav('peers',this)"><span class="nav-icon">◎</span>Peers</div>
+
+  <div class="nav-sec">Paymaster</div>
+  <div class="nav-item" onclick="nav('tokens',this)"><span class="nav-icon">◉</span>ERC-20 Tokens</div>
+  <div class="nav-item" onclick="nav('budgets',this)"><span class="nav-icon">▤</span>Budgets</div>
+  <div class="nav-item" onclick="nav('deposit',this)"><span class="nav-icon">↓</span>Deposit / Withdraw</div>
+
+  <div class="nav-sec">Reference</div>
+  <div class="nav-item" onclick="nav('abi',this)"><span class="nav-icon">{ }</span>ABI & SDK</div>
+  <div class="nav-item" onclick="nav('nodelog',this)"><span class="nav-icon">📋</span>Node Logs</div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div class="panel active" id="panel-dashboard">
+  <div class="stat-grid">
+    <div class="stat hi">
+      <div class="stat-lbl">EntryPoint Deposit</div>
+      <div class="stat-val" style="color:var(--accent2)" id="ep-balance">2.481 ETH</div>
+      <div class="stat-sub up" id="ep-usd">≈ $7,458 @ $3,005</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Ops Sponsored (24h)</div>
+      <div class="stat-val" id="ops-24h">8,294</div>
+      <div class="stat-sub up" id="ops-delta">↑ 9.3% vs yesterday</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Gas Spent (24h)</div>
+      <div class="stat-val" id="gas-24h">0.641 ETH</div>
+      <div class="stat-sub dn">↑ 4.2% cost increase</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Current Base Fee</div>
+      <div class="stat-val" id="base-fee">-- gwei</div>
+      <div class="stat-sub">Mainnet live feed</div>
+    </div>
+  </div>
+
+  <!-- node status bar -->
+  <div class="node-bar">
+    <div class="node-card">
+      <div class="node-name">PRIMARY RPC — Alchemy</div>
+      <div class="node-status"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Connected</div>
+      <div class="node-block">Latest block: <span id="nb-primary">syncing…</span></div>
+    </div>
+    <div class="node-card">
+      <div class="node-name">FALLBACK RPC — Infura</div>
+      <div class="node-status" id="infura-stat"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Standby</div>
+      <div class="node-block">Latest block: <span id="nb-fallback">syncing…</span></div>
+    </div>
+    <div class="node-card">
+      <div class="node-name">BUNDLER — Pimlico</div>
+      <div class="node-status"><span class="dot" style="background:var(--green);animation:pulse 2s infinite"></span>Active</div>
+      <div class="node-block">Queue depth: <span id="bundler-q">0</span> ops</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Daily Budget Utilisation</span>
+        <span class="badge amber" id="budget-pct-badge">-- %</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="budget-bar" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--teal))"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
+        <span id="budget-spent-lbl">0.000 ETH spent</span>
+        <span>Limit: <span id="budget-limit-lbl">1.0 ETH / day</span></span>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Resets in <span id="budget-reset" style="color:var(--text);font-weight:700">--:--:--</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Mode Split (24h)</span></div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:4px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+            <div style="width:9px;height:9px;border-radius:2px;background:var(--accent)"></div>
+            <span style="font-size:11px">Sponsored</span>
+            <span style="margin-left:auto;font-weight:700" id="mode-sponsored">5,912</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:9px;height:9px;border-radius:2px;background:var(--teal)"></div>
+            <span style="font-size:11px">ERC-20 Prepay</span>
+            <span style="margin-left:auto;font-weight:700" id="mode-erc20">2,382</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 56 56" width="56" height="56">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--bg4)" stroke-width="9"/>
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--accent)" stroke-width="9" stroke-dasharray="83 55" stroke-dashoffset="22"/>
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--teal)" stroke-width="9" stroke-dasharray="44 94" stroke-dashoffset="-61"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Gas Spend — Last 14 Days (ETH)</span></div>
+    <div class="chart-wrap"><canvas id="gasChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Recent Confirmed UserOperations</span>
+      <a class="explorer-link" href="https://etherscan.io/address/0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001" target="_blank">View on Etherscan ↗</a>
+    </div>
+    <div id="dash-feed"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MEMPOOL ═══════════════ -->
+<div class="panel" id="panel-mempool">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Live Mempool — Pending UserOperations</span>
+      <span class="badge cyan" id="mp-count-badge">0 pending</span>
+    </div>
+    <div id="mempool-list" style="max-height:520px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ BLOCKS ═══════════════ -->
+<div class="panel" id="panel-blocks">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Recent Blocks</span>
+      <span style="font-size:10px;color:var(--muted)">Mainnet — live</span>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Block</th><th>Timestamp</th><th>Txns</th><th>Gas Used</th><th>Base Fee</th><th>Miner</th><th></th></tr></thead>
+      <tbody id="block-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ TX LOG ═══════════════ -->
+<div class="panel" id="panel-txlog">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Transaction Log — All Sponsored Ops</span>
+      <div style="display:flex;gap:6px">
+        <select class="fi" style="width:120px;padding:3px 7px" id="tx-filter" onchange="filterTx()">
+          <option>All</option><option>Sponsored</option><option>ERC-20</option><option>Failed</option>
+        </select>
+        <button class="btn sm" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+    </div>
+    <table class="tbl" id="tx-tbl">
+      <thead><tr><th>Hash</th><th>Block</th><th>Sender</th><th>Mode</th><th>Gas (ETH)</th><th>Status</th><th>Explorer</th></tr></thead>
+      <tbody id="tx-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ RPC ENDPOINTS ═══════════════ -->
+<div class="panel" id="panel-rpc">
+  <div class="warn-box">⚠ RPC URLs and API keys are stored only in this session. Never share them publicly. Use environment variables in production.</div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Ethereum Mainnet RPC Configuration</span></div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Primary RPC URL (Alchemy / Infura / QuickNode)</label>
+        <input class="fi" id="rpc-primary" placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY" value="https://eth-mainnet.g.alchemy.com/v2/"/>
+      </div>
+      <div class="fg">
+        <label>Fallback RPC URL</label>
+        <input class="fi" id="rpc-fallback" placeholder="https://mainnet.infura.io/v3/YOUR_KEY" value="https://mainnet.infura.io/v3/"/>
+      </div>
+    </div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Bundler RPC (Pimlico / Stackup / Alchemy AA)</label>
+        <input class="fi" id="rpc-bundler" placeholder="https://api.pimlico.io/v2/1/rpc?apikey=YOUR_KEY" value="https://api.pimlico.io/v2/1/rpc?apikey="/>
+      </div>
+      <div class="fg">
+        <label>EntryPoint Address (v0.6)</label>
+        <input class="fi" id="ep-addr" value="0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"/>
+      </div>
+    </div>
+    <div class="fi-group">
+      <div class="fg">
+        <label>Chain ID</label>
+        <input class="fi" id="chain-id" value="1" style="width:100%"/>
+      </div>
+      <div class="fg">
+        <label>Paymaster Contract Address</label>
+        <input class="fi" id="pm-addr" value="0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn primary" onclick="testRPC()">⚡ Test Connection</button>
+      <button class="btn" onclick="saveRPC()">Save Config</button>
+    </div>
+    <div id="rpc-result" style="margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--green);display:none"></div>
+  </div>
+
+  <div class
