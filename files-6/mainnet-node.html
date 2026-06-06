@@ -813,6 +813,7 @@ function renderMempool(){
       <span class="mono" style="margin-left:10px">${op.ts.slice(11)}</span>
     </div>`).join('');
 }
+
 // ─────────────────────────────────────────────
 // CONFIRMED TX SIMULATION
 // ─────────────────────────────────────────────
@@ -1085,3 +1086,80 @@ function renderLog(){
 }
 function filterLog(){ renderLog(); }
 function clearLog(){ logLines=[]; renderLog(); }
+// ─────────────────────────────────────────────
+// GAS CHART
+// ─────────────────────────────────────────────
+function buildChart(){
+  const ctx=document.getElementById('gasChart');
+  if(!ctx) return;
+  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en',{month:'short',day:'numeric'});});
+  const data=[0.19,0.24,0.18,0.31,0.22,0.41,0.29,0.52,0.38,0.45,0.57,0.49,0.61,0.641];
+  new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:'#3d7fff',backgroundColor:'rgba(61,127,255,0.07)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#3d7fff',fill:true,tension:.35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(3)} ETH`}}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#636a85',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#636a85',font:{size:9},callback:v=>`${v.toFixed(2)} ETH`}}}}});
+}
+
+// ─────────────────────────────────────────────
+// ABI COPY
+// ─────────────────────────────────────────────
+function copyABI(){
+  const abi=JSON.stringify([
+    {name:'deposit',type:'function',stateMutability:'payable',inputs:[],outputs:[]},
+    {name:'withdrawTo',type:'function',stateMutability:'nonpayable',inputs:[{name:'to',type:'address'},{name:'amount',type:'uint256'}],outputs:[]},
+    {name:'setSigner',type:'function',stateMutability:'nonpayable',inputs:[{name:'signer',type:'address'},{name:'active',type:'bool'}],outputs:[]},
+    {name:'configureToken',type:'function',stateMutability:'nonpayable',inputs:[{name:'token',type:'address'},{name:'feed',type:'address'},{name:'manualRate',type:'uint256'},{name:'decimals',type:'uint8'}],outputs:[]},
+    {name:'setDailyBudget',type:'function',stateMutability:'nonpayable',inputs:[{name:'weiPerDay',type:'uint256'}],outputs:[]},
+    {name:'setUserBudget',type:'function',stateMutability:'nonpayable',inputs:[{name:'user',type:'address'},{name:'weiLimit',type:'uint256'}],outputs:[]},
+    {name:'setPaused',type:'function',stateMutability:'nonpayable',inputs:[{name:'paused',type:'bool'}],outputs:[]},
+    {name:'getDeposit',type:'function',stateMutability:'view',inputs:[],outputs:[{type:'uint256'}]},
+    {name:'getRemainingDailyBudget',type:'function',stateMutability:'view',inputs:[],outputs:[{type:'uint256'}]},
+    {name:'getUserRemainingBudget',type:'function',stateMutability:'view',inputs:[{name:'user',type:'address'}],outputs:[{type:'uint256'}]},
+  ],null,2);
+  navigator.clipboard?.writeText(abi);
+  toast('ABI JSON copied to clipboard');
+}
+
+// ─────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────
+function exportCSV(){
+  const rows=[['Hash','Block','Sender','Mode','Gas(ETH)','Status','Timestamp'],...allTx.map(t=>[t.hash,t.block,t.sender,t.mode,t.gas,t.status,t.ts])];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='paymaster_tx_log.csv';
+  a.click();
+  toast('CSV exported');
+}
+
+// ─────────────────────────────────────────────
+// INIT & TICKERS
+// ─────────────────────────────────────────────
+function init(){
+  renderTokens(); renderBudgets(); renderPeers();
+  updateBudgetBar(); buildChart();
+  addLog('OK','VerifyingPaymaster Control Panel started');
+  addLog('INFO','EntryPoint: 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789');
+  addLog('INFO','Paymaster: 0x4a9eFB14c2e3A8c9D071F843cD1bB2E3c7F20001');
+  addLog('INFO','Chain: Ethereum Mainnet (chainId: 1)');
+  addLog('INFO','Connect primary RPC in the RPC Endpoints panel to sync live data');
+  // seed a few initial blocks
+  for(let i=0;i<10;i++){
+    const bn=currentBlock-i;
+    allBlocks.push({num:bn,ts:ts(),txns:rndInt(80,320),gasUsed:rnd(40,95).toFixed(1)+'%',baseFee:rnd(8,25).toFixed(2)+' gwei',miner:shortAddr()});
+  }
+  renderBlocks();
+  // seed a few txs
+  for(let i=0;i<5;i++){
+    const m=rndInt(0,2);const mc=['blue','green','purple'];const ml=['Sponsored','ERC-20 (USDC)','ERC-20 (DAI)'];
+    allTx.push({hash:shortHash(),block:currentBlock-i,sender:shortAddr(),mode:ml[m],modeCol:mc[m],gas:rnd(0.0005,0.005).toFixed(4),status:'Success',ts:ts()});
+  }
+  renderTxLog(); renderDashFeed();
+}
+
+init();
+setInterval(tickBlock,12000);            // ~12s block time
+setInterval(addMempoolOp,2800);          // incoming ops
+setInterval(confirmOp,4500);             // confirm ops
+setInterval(updateBudgetBar,1000);       // reset countdown
+</script>
+</body>
+</html>
