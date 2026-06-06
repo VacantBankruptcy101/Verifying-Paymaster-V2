@@ -701,4 +701,115 @@ const budgets = [
 const peers = [
   { id:'16Uiu2HAmS…a7f3', ip:'31.14.200.82:30303', client:'Geth/v1.13', block:currentBlock-2, lat:18 },
   { id:'16Uiu2HAm9…b1c2', ip:'104.21.43.11:30303', client:'Erigon/v2.6', block:currentBlock-1, lat:32 },
-  {
+    { id:'16Uiu2HAkZ…f9e4', ip:'54.203.112.77:30303', client:'Nethermind/v1.25', block:currentBlock, lat:11 },
+  { id:'16Uiu2HAmT…d22b', ip:'185.159.48.9:30303', client:'Besu/v23.7', block:currentBlock-3, lat:55 },
+];
+
+let allTx = [];
+let allBlocks = [];
+let logLines = [];
+let mempoolOps = [];
+
+// ─────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────
+const rnd=(a,b)=>Math.random()*(b-a)+a;
+const rndInt=(a,b)=>Math.floor(rnd(a,b+1));
+const hex=(n)=>'0x'+Math.floor(Math.random()*0xffffffff).toString(16).padStart(8,'0');
+const shortHash=()=>'0x'+[...Array(8)].map(()=>(Math.random()*0xf|0).toString(16)).join('')+'…';
+const shortAddr=()=>'0x'+[...Array(4)].map(()=>(Math.random()*0xf|0).toString(16)).join('')+'…'+[...Array(4)].map(()=>(Math.random()*0xf|0).toString(16)).join('');
+const ts=()=>new Date().toISOString().replace('T',' ').slice(0,19);
+
+function toast(msg,dur=2800){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+function copyChip(val){navigator.clipboard?.writeText(val);toast('Copied: '+val.slice(0,14)+'…');}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function nav(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// PAUSE
+// ─────────────────────────────────────────────
+function togglePause(){
+  isPaused=!isPaused;
+  const pill=document.getElementById('node-pill');
+  const lbl=document.getElementById('node-lbl');
+  const btn=document.getElementById('pause-btn');
+  if(isPaused){
+    pill.className='pill paused'; lbl.textContent='Paused';
+    btn.textContent='▶ Resume'; btn.classList.remove('danger');
+    addLog('WARN','Contract paused — sponsorship halted');
+    toast('⚠ Contract paused');
+  } else {
+    pill.className='pill live'; lbl.textContent='Synced';
+    btn.textContent='⏸ Pause'; btn.classList.add('danger');
+    addLog('OK','Contract resumed — sponsorship active');
+    toast('✓ Contract resumed');
+  }
+}
+
+// ─────────────────────────────────────────────
+// LIVE BLOCK / BASE FEE SIMULATION
+// ─────────────────────────────────────────────
+function tickBlock(){
+  currentBlock+=rndInt(0,1);
+  baseFee=parseFloat((baseFee*(0.93+Math.random()*0.14)).toFixed(2));
+  document.getElementById('live-block').textContent=currentBlock.toLocaleString();
+  document.getElementById('base-fee').textContent=baseFee.toFixed(2)+' gwei';
+  document.getElementById('nb-primary').textContent='#'+currentBlock.toLocaleString();
+  document.getElementById('nb-fallback').textContent='#'+(currentBlock-rndInt(0,2)).toLocaleString();
+  document.getElementById('bundler-q').textContent=rndInt(0,18);
+
+  // new block record
+  const blk={
+    num:currentBlock,
+    ts:ts(),
+    txns:rndInt(80,320),
+    gasUsed:(rnd(40,95)).toFixed(1)+'%',
+    baseFee:baseFee.toFixed(2)+' gwei',
+    miner:shortAddr()
+  };
+  allBlocks.unshift(blk);
+  if(allBlocks.length>50) allBlocks.pop();
+  renderBlocks();
+}
+
+// ─────────────────────────────────────────────
+// MEMPOOL SIMULATION
+// ─────────────────────────────────────────────
+function addMempoolOp(){
+  if(isPaused) return;
+  const modes=['Sponsored','ERC-20 (USDC)','ERC-20 (DAI)'];
+  const mc=['blue','green','purple'];
+  const mi=rndInt(0,2);
+  const op={hash:shortHash(),sender:shortAddr(),mode:mi,modeLbl:modes[mi],modeCol:mc[mi],
+    maxFee:(rnd(12,40)).toFixed(2)+' gwei',gasLimit:rndInt(100,400)+'k',ts:ts()};
+  mempoolOps.unshift(op);
+  if(mempoolOps.length>30) mempoolOps.pop();
+  document.getElementById('mp-badge').textContent=mempoolOps.length;
+  document.getElementById('mp-count-badge').textContent=mempoolOps.length+' pending';
+  renderMempool();
+}
+
+function renderMempool(){
+  const el=document.getElementById('mempool-list');
+  el.innerHTML=mempoolOps.map(op=>`
+    <div class="mp-row">
+      <div class="mp-dot" style="background:var(--${op.modeCol})"></div>
+      <span class="hash-link" onclick="toast('Hash: ${op.hash}')">${op.hash}</span>
+      <span class="mono">${op.sender}</span>
+      <span class="badge ${op.modeCol}">${op.modeLbl}</span>
+      <span style="margin-left:auto;font-size:10.5px;color:var(--muted)">maxFee ${op.maxFee} · ${op.gasLimit}</span>
+      <span class="mono" style="margin-left:10px">${op.ts.slice(11)}</span>
+    </div>`).join('');
+}
