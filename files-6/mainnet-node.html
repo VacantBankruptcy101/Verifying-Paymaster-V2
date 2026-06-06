@@ -392,4 +392,313 @@ textarea.fi{resize:vertical;min-height:72px;letter-spacing:.5px;}
     <div id="rpc-result" style="margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--green);display:none"></div>
   </div>
 
-  <div class
+    <div class="card">
+    <div class="card-head"><span class="card-title">JSON-RPC Endpoint Methods Supported</span></div>
+    <table class="tbl">
+      <thead><tr><th>Method</th><th>Namespace</th><th>Purpose</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">eth_blockNumber</td><td class="mono">eth</td><td>Latest block height</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getBalance</td><td class="mono">eth</td><td>Account balance</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_sendRawTransaction</td><td class="mono">eth</td><td>Broadcast signed tx</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getTransactionByHash</td><td class="mono">eth</td><td>Tx lookup by hash</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getTransactionReceipt</td><td class="mono">eth</td><td>Confirm inclusion</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_call</td><td class="mono">eth</td><td>Read contract state</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_estimateGas</td><td class="mono">eth</td><td>Gas pre-flight</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_gasPrice</td><td class="mono">eth</td><td>Current gas price</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_feeHistory</td><td class="mono">eth</td><td>Base fee history</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getLogs</td><td class="mono">eth</td><td>Event log query</td><td><span class="badge green">Active</span></td></tr>
+        <tr><td class="mono">eth_getUserOperationByHash</td><td class="mono">eth</td><td>UserOp status</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">eth_sendUserOperation</td><td class="mono">eth</td><td>Submit UserOp to bundler</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">eth_supportedEntryPoints</td><td class="mono">eth</td><td>Bundler EntryPoint list</td><td><span class="badge blue">AA ext</span></td></tr>
+        <tr><td class="mono">pm_sponsorUserOperation</td><td class="mono">pm</td><td>Request paymasterAndData</td><td><span class="badge purple">Paymaster</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ SIGNER KEYS ═══════════════ -->
+<div class="panel" id="panel-keys">
+  <div class="warn-box">⚠ Private keys give full signing authority. In production, use HSM / KMS (AWS KMS, GCP Cloud KMS, Hashicorp Vault). These fields are session-only and never transmitted.</div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Hot Signer — Backend Service</span><span class="badge green">Active</span></div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signer Address (public)</label>
+        <input class="fi" id="signer-addr-1" value="0xdEaD1234567890ABcDEF1234567890abcdef5678"/>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Private Key</label>
+        <div class="key-reveal-wrap">
+          <input class="fi secret" id="pk-1" type="password" placeholder="0x…64 hex chars" autocomplete="off"/>
+          <div class="key-mask" id="mask-1" onclick="revealKey(1)">🔒 Click to enter private key</div>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signing Backend URL (optional relay)</label>
+        <input class="fi" id="signer-relay-1" placeholder="https://your-signer-service.com/sign"/>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn primary" onclick="verifySigner(1)">Verify Key</button>
+        <button class="btn" onclick="rotateSigner(1)">Rotate</button>
+      </div>
+      <div id="signer-result-1" style="font-size:10px;font-family:var(--mono);margin-top:7px;color:var(--green)"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Cold Backup Signer</span><span class="badge amber">Standby</span></div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Signer Address (public)</label>
+        <input class="fi" id="signer-addr-2" placeholder="0x…"/>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Private Key</label>
+        <div class="key-reveal-wrap">
+          <input class="fi secret" id="pk-2" type="password" placeholder="0x…64 hex chars" autocomplete="off"/>
+          <div class="key-mask" id="mask-2" onclick="revealKey(2)">🔒 Click to enter private key</div>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Activation Threshold</label>
+        <select class="fi" id="backup-thresh">
+          <option>Primary failure > 60s</option>
+          <option>Primary failure > 30s</option>
+          <option>Manual only</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn primary" onclick="verifySigner(2)">Verify Key</button>
+        <button class="btn" onclick="activateBackup()">Activate Now</button>
+      </div>
+      <div id="signer-result-2" style="font-size:10px;font-family:var(--mono);margin-top:7px;color:var(--green)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">paymasterAndData Signing Spec</span></div>
+    <pre style="font-family:var(--mono);font-size:10.5px;color:var(--muted);line-height:1.75;overflow-x:auto"><code><span style="color:var(--purple)">// Hash signed by the backend signer (EIP-191 personal_sign or raw secp256k1)
+</span><span style="color:var(--text)">const hash = ethers.utils.keccak256(ethers.utils.solidityPack(
+  ['bytes32','uint256','address','uint8','uint48','uint48','address'],
+  [userOpHash, chainId, paymasterAddr, mode, validUntil, validAfter, tokenAddr]
+));
+const sig = await signer.signMessage(ethers.utils.arrayify(hash));
+
+<span style="color:var(--purple)">// Pack into paymasterAndData (20 + 1 + 6 + 6 + 20 + 65 = 118 bytes)
+</span>const paymasterAndData = ethers.utils.hexConcat([
+  paymasterAddr,         <span style="color:var(--dim)">// [0:20]</span>
+  [mode],                <span style="color:var(--dim)">// [20]</span>
+  packUint48(validUntil),<span style="color:var(--dim)">// [21:27]</span>
+  packUint48(validAfter),<span style="color:var(--dim)">// [27:33]</span>
+  tokenAddr,             <span style="color:var(--dim)">// [33:53]</span>
+  sig                    <span style="color:var(--dim)">// [53:118] ECDSA 65 bytes</span>
+]);</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════ PEERS ═══════════════ -->
+<div class="panel" id="panel-peers">
+  <div class="card">
+    <div class="card-head"><span class="card-title">Connected Peers / Nodes</span><span class="badge green" id="peer-count">0 peers</span></div>
+    <table class="tbl">
+      <thead><tr><th>ENR / Peer ID</th><th>IP</th><th>Client</th><th>Block</th><th>Latency</th><th>Status</th></tr></thead>
+      <tbody id="peer-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Add Static Peer</span></div>
+    <div class="frow">
+      <div class="fg" style="flex:1">
+        <label>enode:// URI or ENR</label>
+        <input class="fi" id="peer-uri" placeholder="enode://pubkey@ip:30303"/>
+      </div>
+      <button class="btn primary" onclick="addPeer()">Add Peer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOKENS ═══════════════ -->
+<div class="panel" id="panel-tokens">
+  <div class="card">
+    <div class="card-head"><span class="card-title">Accepted ERC-20 Tokens — Mainnet</span></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Symbol</th><th>Mainnet Address</th><th>Oracle Price Feed</th><th>Rate (tokens/ETH)</th><th>Dec</th><th>Status</th><th></th></tr></thead>
+      <tbody id="token-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Add / Update Token</span></div>
+    <div class="fi-group">
+      <div class="fg"><label>Token Symbol</label><input class="fi" id="t-sym" placeholder="USDC"/></div>
+      <div class="fg"><label>Contract Address (Mainnet)</label><input class="fi" id="t-addr" placeholder="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"/></div>
+    </div>
+    <div class="fi-group">
+      <div class="fg"><label>Chainlink Price Feed Address</label><input class="fi" id="t-feed" placeholder="0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"/></div>
+      <div class="fg"><label>Rate (tokens per ETH, manual fallback)</label><input class="fi" id="t-rate" placeholder="3000"/></div>
+      <div class="fg"><label>Decimals</label><input class="fi" id="t-dec" placeholder="6"/></div>
+    </div>
+    <button class="btn primary" onclick="addToken()">Add Token</button>
+  </div>
+</div>
+
+<!-- ═══════════════ BUDGETS ═══════════════ -->
+<div class="panel" id="panel-budgets">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Global Daily Limit</span></div>
+      <div class="frow" style="margin-bottom:8px">
+        <div class="fg" style="flex:1"><label>Max ETH per Day (0 = unlimited)</label><input class="fi" id="global-budget" value="1.0"/></div>
+        <button class="btn primary" onclick="setGlobalBudget()">Update</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">Current: <span style="color:var(--text);font-weight:700" id="current-global-limit">1.0 ETH/day</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Per-User Cap</span></div>
+      <div class="fg" style="margin-bottom:6px"><label>User Address</label><input class="fi" id="budget-user" placeholder="0x…"/></div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Max ETH</label><input class="fi" id="budget-amt" placeholder="0.02"/></div>
+        <button class="btn primary" onclick="setUserBudget()">Set Cap</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">User Budget Ledger</span></div>
+    <table class="tbl">
+      <thead><tr><th>Address</th><th>Limit (ETH)</th><th>Spent (ETH)</th><th>Remaining</th><th>%</th></tr></thead>
+      <tbody id="budget-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ DEPOSIT / WITHDRAW ═══════════════ -->
+<div class="panel" id="panel-deposit">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Deposit ETH to EntryPoint</span></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Funds debited per UserOperation sponsored.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('0.5')"><div style="font-size:15px;font-weight:700">0.5 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~5k ops</div></div>
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('1.0')"><div style="font-size:15px;font-weight:700">1.0 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~10k ops</div></div>
+        <div class="node-card" style="text-align:center;cursor:pointer" onclick="setDeposit('5.0')"><div style="font-size:15px;font-weight:700">5.0 ETH</div><div style="font-size:10px;color:var(--muted);margin-top:2px">~50k ops</div></div>
+      </div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Custom Amount (ETH)</label><input class="fi" id="dep-amt" placeholder="0.1"/></div>
+        <button class="btn primary" onclick="doDeposit()">Deposit</button>
+      </div>
+      <div style="margin-top:10px;background:var(--bg3);border-radius:6px;padding:9px 10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--muted)">EP Balance</span><span style="font-weight:700;color:var(--accent2)" id="dep-balance">2.481 ETH</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--muted)">Est. ops remaining</span><span style="font-weight:700" id="dep-ops">~24,810</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Withdraw</span></div>
+      <div class="fg" style="margin-bottom:8px"><label>ETH — Recipient</label><input class="fi" id="w-addr" placeholder="0x…"/></div>
+      <div class="frow" style="margin-bottom:12px">
+        <div class="fg" style="flex:1"><label>Amount (ETH)</label><input class="fi" id="w-amt" placeholder="0.1"/></div>
+        <button class="btn" style="border-color:var(--amber);color:var(--amber)" onclick="doWithdraw()">Withdraw ETH</button>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin-bottom:12px"/>
+      <div class="fg" style="margin-bottom:8px"><label>ERC-20 Token Address</label><input class="fi" id="wt-token" placeholder="0xA0b8…eB48"/></div>
+      <div class="fg" style="margin-bottom:8px"><label>Recipient</label><input class="fi" id="wt-addr" placeholder="0x…"/></div>
+      <div class="frow">
+        <div class="fg" style="flex:1"><label>Amount</label><input class="fi" id="wt-amt" placeholder="1000.0"/></div>
+        <button class="btn" style="border-color:var(--teal);color:var(--teal)" onclick="doWithdrawToken()">Withdraw Token</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ABI / SDK ═══════════════ -->
+<div class="panel" id="panel-abi">
+  <div class="card">
+    <div class="card-head"><span class="card-title">paymasterAndData Binary Layout (118 bytes)</span></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Bytes</th><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">[0:20]</td><td>paymaster</td><td class="mono">address</td><td style="color:var(--muted)">Stripped by EntryPoint before calling validatePaymasterUserOp</td></tr>
+        <tr><td class="mono">[20]</td><td>mode</td><td class="mono">uint8</td><td style="color:var(--muted)">0x00 = Sponsored · 0x01 = ERC-20 prepay</td></tr>
+        <tr><td class="mono">[21:27]</td><td>validUntil</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix timestamp; 0 = no expiry</td></tr>
+        <tr><td class="mono">[27:33]</td><td>validAfter</td><td class="mono">uint48</td><td style="color:var(--muted)">Unix timestamp; 0 = immediate</td></tr>
+        <tr><td class="mono">[33:53]</td><td>token</td><td class="mono">address</td><td style="color:var(--muted)">Zero address for sponsored mode</td></tr>
+        <tr><td class="mono">[53:118]</td><td>signature</td><td class="mono">bytes65</td><td style="color:var(--muted)">ECDSA over keccak256(userOpHash‖chainId‖mode‖validUntil‖validAfter‖token)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">Contract ABI — Key Functions</span><button class="btn sm" onclick="copyABI()">Copy ABI JSON</button></div>
+    <table class="tbl" style="margin-top:6px">
+      <thead><tr><th>Function</th><th>Access</th><th>Selector</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">validatePaymasterUserOp</td><td><span class="badge blue">EntryPoint</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Validate + debit / charge token</td></tr>
+        <tr><td class="mono">postOp</td><td><span class="badge blue">EntryPoint</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Post-execution token refund/finalize</td></tr>
+        <tr><td class="mono">deposit()</td><td><span class="badge purple">owner</span></td><td class="mono">0xd0e30db0</td><td style="color:var(--muted)">Deposit ETH to EntryPoint</td></tr>
+        <tr><td class="mono">withdrawTo(to,amt)</td><td><span class="badge purple">owner</span></td><td class="mono">0x205c2878</td><td style="color:var(--muted)">Pull ETH from EntryPoint</td></tr>
+        <tr><td class="mono">setSigner(addr,bool)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Grant / revoke signing authority</td></tr>
+        <tr><td class="mono">configureToken(…)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Add/update ERC-20 token + oracle</td></tr>
+        <tr><td class="mono">setDailyBudget(wei)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Global daily ETH cap</td></tr>
+        <tr><td class="mono">setUserBudget(user,wei)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Per-address ETH cap</td></tr>
+        <tr><td class="mono">setPaused(bool)</td><td><span class="badge purple">owner</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Emergency circuit breaker</td></tr>
+        <tr><td class="mono">getDeposit()</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Current EntryPoint deposit</td></tr>
+        <tr><td class="mono">getRemainingDailyBudget()</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Remaining global daily budget</td></tr>
+        <tr><td class="mono">getUserRemainingBudget(user)</td><td><span class="badge green">public</span></td><td class="mono">0x…</td><td style="color:var(--muted)">Remaining budget for one user</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ NODE LOGS ═══════════════ -->
+<div class="panel" id="panel-nodelog">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Node System Log</span>
+      <div style="display:flex;gap:6px">
+        <select class="fi" style="width:100px;padding:3px 7px" id="log-filter" onchange="filterLog()">
+          <option>ALL</option><option>INFO</option><option>OK</option><option>WARN</option><option>ERR</option>
+        </select>
+        <button class="btn sm" onclick="clearLog()">Clear</button>
+      </div>
+    </div>
+    <div class="log-wrap" id="node-log"></div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+'use strict';
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let isPaused = false;
+let currentBlock = 20_150_000;
+let baseFee = 12.4;
+let epBalance = 2.481;
+let budgetSpent = 0.641;
+const DAILY_LIMIT = 1.0;
+
+const tokens = [
+  { sym:'USDC', addr:'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', feed:'0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', rate:3000, dec:6, active:true },
+  { sym:'DAI',  addr:'0x6B175474E89094C44Da98b954EedeAC495271d0F', feed:'0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9', rate:3000, dec:18, active:true },
+  { sym:'WETH', addr:'0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', feed:'0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', rate:1, dec:18, active:true },
+];
+
+const signers = [
+  { addr:'0xdEaD1234567890ABcDEF1234567890abcdef5678', role:'Primary', active:true },
+];
+
+const budgets = [
+  { addr:'0xabc1…def2', limit:0.05, spent:0.012 },
+  { addr:'0x9f3a…bc11', limit:0.10, spent:0.071 },
+  { addr:'0x1122…3344', limit:0.02, spent:0.002 },
+];
+
+const peers = [
+  { id:'16Uiu2HAmS…a7f3', ip:'31.14.200.82:30303', client:'Geth/v1.13', block:currentBlock-2, lat:18 },
+  { id:'16Uiu2HAm9…b1c2', ip:'104.21.43.11:30303', client:'Erigon/v2.6', block:currentBlock-1, lat:32 },
+  {
