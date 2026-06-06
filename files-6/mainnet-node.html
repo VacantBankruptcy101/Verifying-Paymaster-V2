@@ -813,3 +813,275 @@ function renderMempool(){
       <span class="mono" style="margin-left:10px">${op.ts.slice(11)}</span>
     </div>`).join('');
 }
+// ─────────────────────────────────────────────
+// CONFIRMED TX SIMULATION
+// ─────────────────────────────────────────────
+function confirmOp(){
+  if(isPaused || mempoolOps.length===0) return;
+  const op=mempoolOps.pop();
+  const gas=(rnd(0.0005,0.005)).toFixed(4);
+  const ok=Math.random()>0.04;
+  const tx={hash:op.hash,block:currentBlock,sender:op.sender,mode:op.modeLbl,
+    modeCol:op.modeCol,gas,status:ok?'Success':'Reverted',ts:op.ts};
+  allTx.unshift(tx);
+  if(allTx.length>200) allTx.pop();
+  if(ok) {
+    budgetSpent=Math.min(DAILY_LIMIT,budgetSpent+parseFloat(gas));
+    updateBudgetBar();
+  }
+  renderTxLog();
+  renderDashFeed();
+  addLog(ok?'OK':'WARN', (ok?'UserOp confirmed':'UserOp reverted')+' hash='+op.hash+' gas='+gas+' ETH');
+  document.getElementById('mp-badge').textContent=mempoolOps.length;
+  document.getElementById('mp-count-badge').textContent=mempoolOps.length+' pending';
+}
+
+// ─────────────────────────────────────────────
+// RENDER TX LOG
+// ─────────────────────────────────────────────
+function renderTxLog(){
+  const filter=document.getElementById('tx-filter')?.value||'All';
+  const rows=allTx.filter(tx=>{
+    if(filter==='All') return true;
+    if(filter==='Sponsored') return tx.mode==='Sponsored';
+    if(filter==='ERC-20') return tx.mode.startsWith('ERC-20');
+    if(filter==='Failed') return tx.status==='Reverted';
+    return true;
+  });
+  document.getElementById('tx-tbody').innerHTML=rows.slice(0,100).map(tx=>`
+    <tr>
+      <td><a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">${tx.hash}</a></td>
+      <td class="mono">${tx.block.toLocaleString()}</td>
+      <td class="mono">${tx.sender}</td>
+      <td><span class="badge ${tx.modeCol}">${tx.mode}</span></td>
+      <td class="mono">${tx.gas}</td>
+      <td><span class="badge ${tx.status==='Success'?'green':'red'}">${tx.status}</span></td>
+      <td><a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">Etherscan ↗</a></td>
+    </tr>`).join('');
+}
+function filterTx(){ renderTxLog(); }
+
+// ─────────────────────────────────────────────
+// DASHBOARD FEED
+// ─────────────────────────────────────────────
+function renderDashFeed(){
+  document.getElementById('dash-feed').innerHTML=allTx.slice(0,8).map(tx=>`
+    <div class="mp-row">
+      <div class="mp-dot" style="background:var(--${tx.status==='Success'?'green':'red'})"></div>
+      <a class="hash-link" href="https://etherscan.io/tx/${tx.hash}" target="_blank">${tx.hash}</a>
+      <span class="mono">${tx.sender}</span>
+      <span class="badge ${tx.modeCol}">${tx.mode}</span>
+      <span style="margin-left:auto;font-size:10.5px;font-weight:700">${tx.gas} ETH</span>
+      <span class="badge ${tx.status==='Success'?'green':'red'}" style="margin-left:8px">${tx.status}</span>
+      <a class="hash-link" style="margin-left:8px" href="https://etherscan.io/tx/${tx.hash}" target="_blank">↗</a>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// BLOCKS TABLE
+// ─────────────────────────────────────────────
+function renderBlocks(){
+  document.getElementById('block-tbody').innerHTML=allBlocks.slice(0,20).map(b=>`
+    <tr>
+      <td><a class="hash-link" href="https://etherscan.io/block/${b.num}" target="_blank">${b.num.toLocaleString()}</a></td>
+      <td class="mono">${b.ts}</td>
+      <td>${b.txns}</td>
+      <td>${b.gasUsed}</td>
+      <td class="mono">${b.baseFee}</td>
+      <td class="mono">${b.miner}</td>
+      <td><a class="hash-link" href="https://etherscan.io/block/${b.num}" target="_blank">↗</a></td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// BUDGET BAR
+// ─────────────────────────────────────────────
+function updateBudgetBar(){
+  const pct=Math.min(100,Math.round(budgetSpent/DAILY_LIMIT*100));
+  document.getElementById('budget-bar').style.width=pct+'%';
+  document.getElementById('budget-pct-badge').textContent=pct+'% used';
+  document.getElementById('budget-spent-lbl').textContent=budgetSpent.toFixed(3)+' ETH spent';
+
+  const now=new Date();
+  const midnight=new Date(); midnight.setHours(24,0,0,0);
+  const diff=midnight-now;
+  const hh=String(Math.floor(diff/3600000)).padStart(2,'0');
+  const mm=String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
+  const ss=String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+  document.getElementById('budget-reset').textContent=`${hh}:${mm}:${ss}`;
+}
+
+// ─────────────────────────────────────────────
+// TOKEN TABLE
+// ─────────────────────────────────────────────
+function renderTokens(){
+  document.getElementById('token-tbody').innerHTML=tokens.map((t,i)=>`
+    <tr>
+      <td><strong>${t.sym}</strong></td>
+      <td><a class="addr" href="https://etherscan.io/token/${t.addr}" target="_blank">${t.addr.slice(0,10)}…${t.addr.slice(-6)}</a></td>
+      <td><a class="addr" href="https://etherscan.io/address/${t.feed}" target="_blank">${t.feed.slice(0,10)}…${t.feed.slice(-4)}</a></td>
+      <td class="mono">${Number(t.rate).toLocaleString()} ${t.sym}/ETH</td>
+      <td>${t.dec}</td>
+      <td><span class="badge ${t.active?'green':'amber'}">${t.active?'Active':'Paused'}</span></td>
+      <td><button class="btn sm" onclick="toggleToken(${i})">${t.active?'Disable':'Enable'}</button></td>
+    </tr>`).join('');
+}
+function toggleToken(i){ tokens[i].active=!tokens[i].active; renderTokens(); toast(tokens[i].sym+' '+(tokens[i].active?'enabled':'disabled')); }
+function addToken(){
+  const sym=document.getElementById('t-sym').value.trim();
+  const addr=document.getElementById('t-addr').value.trim();
+  const feed=document.getElementById('t-feed').value.trim();
+  const rate=parseInt(document.getElementById('t-rate').value)||3000;
+  const dec=parseInt(document.getElementById('t-dec').value)||18;
+  if(!sym||!addr){toast('Symbol and address required');return;}
+  tokens.push({sym,addr,feed:feed||'0x0000…',rate,dec,active:true});
+  renderTokens(); toast('Token added → call configureToken() on-chain to persist');
+}
+
+// ─────────────────────────────────────────────
+// BUDGET TABLE
+// ─────────────────────────────────────────────
+function renderBudgets(){
+  document.getElementById('budget-tbody').innerHTML=budgets.map(b=>{
+    const pct=b.limit>0?Math.round(b.spent/b.limit*100):0;
+    return `<tr>
+      <td class="mono">${b.addr}</td>
+      <td>${b.limit.toFixed(3)}</td>
+      <td>${b.spent.toFixed(3)}</td>
+      <td>${(b.limit-b.spent).toFixed(3)}</td>
+      <td><span class="badge ${pct>90?'red':pct>70?'amber':'green'}">${pct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+function setGlobalBudget(){ toast('Global budget updated → call setDailyBudget() on-chain to persist'); }
+function setUserBudget(){ const u=document.getElementById('budget-user').value; if(!u){toast('Enter a user address');return;} toast('User cap set → call setUserBudget() on-chain to persist'); }
+
+// ─────────────────────────────────────────────
+// PEERS
+// ─────────────────────────────────────────────
+function renderPeers(){
+  document.getElementById('peer-count').textContent=peers.length+' peers';
+  document.getElementById('peer-tbody').innerHTML=peers.map(p=>`
+    <tr>
+      <td class="mono">${p.id}</td>
+      <td class="mono">${p.ip}</td>
+      <td>${p.client}</td>
+      <td class="mono">${p.block.toLocaleString()}</td>
+      <td><span class="badge ${p.lat<30?'green':p.lat<60?'amber':'red'}">${p.lat}ms</span></td>
+      <td><span class="badge green">Connected</span></td>
+    </tr>`).join('');
+}
+function addPeer(){ const u=document.getElementById('peer-uri').value.trim(); if(!u){toast('Enter peer URI');return;} peers.push({id:u.slice(0,20)+'…',ip:'custom',client:'unknown',block:currentBlock,lat:rndInt(10,200)}); renderPeers(); toast('Peer added'); }
+
+// ─────────────────────────────────────────────
+// RPC TEST
+// ─────────────────────────────────────────────
+async function testRPC(){
+  const url=document.getElementById('rpc-primary').value.trim();
+  const res=document.getElementById('rpc-result');
+  res.style.display='block'; res.style.color='var(--muted)'; res.textContent='Testing connection…';
+  addLog('INFO','Testing primary RPC: '+url.slice(0,40)+'…');
+  if(!url||url.endsWith('/')||url.includes('YOUR_KEY')){
+    res.style.color='var(--amber)';
+    res.textContent='⚠ Please enter a valid RPC URL with your API key.';
+    addLog('WARN','RPC test skipped — placeholder URL detected');
+    return;
+  }
+  try {
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',method:'eth_blockNumber',params:[],id:1})});
+    const d=await r.json();
+    if(d.result){
+      const bn=parseInt(d.result,16);
+      currentBlock=bn;
+      document.getElementById('live-block').textContent=bn.toLocaleString();
+      document.getElementById('nb-primary').textContent='#'+bn.toLocaleString();
+      res.style.color='var(--green)';
+      res.textContent='✓ Connected — eth_blockNumber: '+bn.toLocaleString()+' (chainId: 1, Mainnet)';
+      addLog('OK','RPC connected — block #'+bn.toLocaleString());
+      // get base fee
+      const r2=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({jsonrpc:'2.0',method:'eth_gasPrice',params:[],id:2})});
+      const d2=await r2.json();
+      if(d2.result){ baseFee=(parseInt(d2.result,16)/1e9).toFixed(2); document.getElementById('base-fee').textContent=baseFee+' gwei'; addLog('INFO','eth_gasPrice: '+baseFee+' gwei'); }
+    } else {
+      res.style.color='var(--red)'; res.textContent='✗ RPC error: '+(d.error?.message||'No result');
+      addLog('ERR','RPC error: '+(d.error?.message||'unknown'));
+    }
+  } catch(e){
+    res.style.color='var(--red)'; res.textContent='✗ Network error: '+e.message;
+    addLog('ERR','RPC network error: '+e.message);
+  }
+}
+function saveRPC(){ toast('RPC config saved to session'); addLog('INFO','RPC config saved'); }
+
+// ─────────────────────────────────────────────
+// SIGNER KEY HANDLING
+// ─────────────────────────────────────────────
+function revealKey(n){
+  document.getElementById('mask-'+n).style.display='none';
+  document.getElementById('pk-'+n).focus();
+}
+function verifySigner(n){
+  const pk=document.getElementById('pk-'+n).value.trim();
+  const res=document.getElementById('signer-result-'+n);
+  if(!pk){ res.style.color='var(--amber)'; res.textContent='⚠ Enter a private key to verify'; return; }
+  if(!pk.match(/^0x[0-9a-fA-F]{64}$/)){
+    res.style.color='var(--red)'; res.textContent='✗ Invalid format — must be 0x + 64 hex chars'; return;
+  }
+  // Derive public address via secp256k1 keccak mock (display-only, real derivation needs ethers)
+  res.style.color='var(--green)';
+  res.textContent='✓ Valid private key format — deploy with ethers.js to derive address on-chain';
+  addLog('OK','Signer #'+n+' key format valid');
+  toast('Signer key valid — connect to live RPC to verify on-chain');
+}
+function rotateSigner(n){ addLog('WARN','Signer #'+n+' rotation initiated — sign tx to call setSigner() on-chain'); toast('Rotation: call setSigner(newAddr,true) then setSigner(oldAddr,false) on-chain'); }
+function activateBackup(){ addLog('WARN','Backup signer activated manually'); toast('Backup signer active — update signing backend URL'); }
+
+// ─────────────────────────────────────────────
+// DEPOSIT / WITHDRAW
+// ─────────────────────────────────────────────
+function setDeposit(v){ document.getElementById('dep-amt').value=v; }
+function doDeposit(){
+  const v=parseFloat(document.getElementById('dep-amt').value);
+  if(!v||isNaN(v)){toast('Enter an amount');return;}
+  epBalance=parseFloat((epBalance+v).toFixed(3));
+  document.getElementById('ep-balance').textContent=epBalance+' ETH';
+  document.getElementById('dep-balance').textContent=epBalance+' ETH';
+  document.getElementById('dep-ops').textContent='~'+(epBalance*10000).toFixed(0);
+  addLog('OK','deposit() called — '+v+' ETH → EntryPoint — sign real tx via your wallet');
+  toast('Simulated deposit: '+v+' ETH. Sign deposit() tx with your owner wallet on Mainnet.');
+}
+function doWithdraw(){
+  const a=document.getElementById('w-addr').value;
+  const v=document.getElementById('w-amt').value;
+  if(!a||!v){toast('Fill in all fields');return;}
+  addLog('WARN','withdrawTo('+a.slice(0,10)+','+v+' ETH) — sign tx to execute on-chain');
+  toast('Sign withdrawTo() tx with owner wallet on Mainnet');
+}
+function doWithdrawToken(){
+  const t=document.getElementById('wt-token').value;
+  const a=document.getElementById('wt-addr').value;
+  const v=document.getElementById('wt-amt').value;
+  if(!t||!a||!v){toast('Fill in all fields');return;}
+  addLog('INFO','ERC-20 withdrawToken('+t.slice(0,10)+','+v+') — sign tx to execute');
+  toast('Sign token withdrawal tx with owner wallet');
+}
+
+// ─────────────────────────────────────────────
+// NODE LOGS
+// ─────────────────────────────────────────────
+function addLog(lvl,msg){
+  logLines.unshift({ts:ts(),lvl,msg});
+  if(logLines.length>200) logLines.pop();
+  renderLog();
+}
+function renderLog(){
+  const filter=document.getElementById('log-filter')?.value||'ALL';
+  const lines=filter==='ALL'?logLines:logLines.filter(l=>l.lvl===filter);
+  document.getElementById('node-log').innerHTML=lines.map(l=>
+    `<div class="log-line"><span class="log-ts">${l.ts}</span><span class="log-lvl ${l.lvl.toLowerCase()}">${l.lvl}</span><span>${l.msg}</span></div>`
+  ).join('');
+}
+function filterLog(){ renderLog(); }
+function clearLog(){ logLines=[]; renderLog(); }
